@@ -86,6 +86,16 @@
   td.squad1 { cursor: pointer; }
   td.squad1:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
   input.squad-edit { width: 84px; text-align: right; background: #fff; color: var(--text-dark); border: 1px solid var(--accent); border-radius: 4px; padding: 4px; font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  td.seat { text-align: center; white-space: nowrap; }
+  thead th.seat { text-align: center; }
+  .seat-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; }
+  .seat-White { background: #eef2f7; color: #37475a; border: 1px solid #b9c4d2; }
+  .seat-Blue { background: #3f7fd1; color: #fff; }
+  .seat-Purple { background: #8a63d2; color: #fff; }
+  .seat-Gold { background: var(--gold); color: #3a2c08; }
+  .seat-conf { font-size: 0.65rem; color: #5a6a7d; margin-top: 2px; }
+  .seat-note { background: var(--panel); border: 1px solid #3d506b; border-radius: 8px; padding: 8px 12px; font-size: 0.72rem; color: #9fb0c4; margin-bottom: 12px; line-height: 1.7; }
+  .seat-note strong { color: #cdd9e8; }
   .name { font-weight: 700; }
   .star { cursor: pointer; font-size: 1.15rem; line-height: 1; user-select: none; opacity: 0.35; transition: opacity .1s, transform .1s; }
   .star.on { opacity: 1; }
@@ -109,6 +119,7 @@
     <button data-sort="thp" class="active">Sort by THP</button>
     <button data-sort="kills">Sort by Kills</button>
     <button data-sort="squad1">Sort by Squad 1</button>
+    <button data-sort="seat">Sort by Seat</button>
     <button data-sort="core">Core first</button>
     <button data-sort="name">Sort by Name</button>
     <button id="importBtn" title="Import stats from a screenshot">&#11014; Import</button>
@@ -134,6 +145,8 @@
 
   <div class="status" id="status">Loading shared data&hellip;</div>
 
+  <div class="seat-note" id="seatNote"></div>
+
   <table class="roster">
     <thead>
       <tr>
@@ -142,6 +155,7 @@
         <th class="num">THP</th>
         <th class="num">Kills (M)</th>
         <th class="num">Squad 1</th>
+        <th class="seat">Seat</th>
         <th class="core">Core</th>
       </tr>
     </thead>
@@ -151,6 +165,7 @@
   <footer>&#9733; Core marks are shared &mdash; everyone with this link sees and edits the same set. TBC = THP not yet captured.</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="seat-estimator.js"></script>
 <script>
   const SEED = [
     {name:"MML", thp:175778224, kills:41.18},
@@ -398,6 +413,11 @@
     document.getElementById('squadLogged').textContent = roster.filter(m => m.squad1 != null).length + '/' + roster.length;
   }
 
+  function seatOf(m) {
+    if (m.thp == null || typeof SeatEstimator === 'undefined') return null;
+    return SeatEstimator.estimateSeat(m.thp / 1e6, m.squad1 != null ? m.squad1 / 1e6 : null);
+  }
+
   function render(sortKey) {
     currentSort = sortKey;
     const sorted = [...roster].sort((a, b) => {
@@ -408,6 +428,15 @@
         if (a.squad1 == null) return 1;
         if (b.squad1 == null) return -1;
         return b.squad1 - a.squad1;
+      }
+      if (sortKey === 'seat') {
+        const ea = seatOf(a), eb = seatOf(b);
+        const sa = ea ? ea.adjustedScore : null;
+        const sb = eb ? eb.adjustedScore : null;
+        if (sa == null && sb == null) return (b.thp || 0) - (a.thp || 0);
+        if (sa == null) return 1;
+        if (sb == null) return -1;
+        return sb - sa;
       }
       if (sortKey === 'core') {
         const ca = core.has(a.name) ? 1 : 0;
@@ -438,12 +467,19 @@
       const squadCell = (m.squad1 == null)
         ? '<td class="num squad1 tbc" data-name="' + safeName + '" title="Tap to set Squad 1 power">TBC</td>'
         : '<td class="num squad1" data-name="' + safeName + '" title="Tap to edit">' + fmtM(m.squad1) + '</td>';
+      const est = seatOf(m);
+      const seatCell = est
+        ? '<td class="seat" title="' + escAttr(est.explanation + (est.flags.length ? ' · Flags: ' + est.flags.join(', ') : '')) + '">' +
+            '<span class="seat-badge seat-' + est.colour + '">' + est.role + '</span>' +
+            '<div class="seat-conf">' + est.confidence + '</div></td>'
+        : '<td class="seat tbc">&mdash;</td>';
       tr.innerHTML =
         '<td>' + (i + 1) + '</td>' +
         '<td class="name">' + safeName + '</td>' +
         thpCell +
         '<td class="num">' + (Number(m.kills) || 0).toFixed(2) + '</td>' +
         squadCell +
+        seatCell +
         '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>';
       tbody.appendChild(tr);
     });
@@ -655,6 +691,17 @@
       render(btn.dataset.sort);
     });
   });
+
+  // Seat-estimate disclaimer + band legend (single-sourced from the estimator)
+  (function () {
+    const note = document.getElementById('seatNote');
+    if (!note || typeof SeatEstimator === 'undefined') return;
+    const rng = b => !isFinite(b.min) ? '< ' + b.max : !isFinite(b.max) ? '≥ ' + b.min : b.min + '–' + b.max;
+    const legend = SeatEstimator.SEAT_BANDS.map(b =>
+      '<span class="seat-badge seat-' + b.colour + '">' + b.colour + '</span> ' + rng(b)).join(' &middot; ');
+    note.innerHTML = '<strong>Seat estimate</strong> &mdash; ' + SeatEstimator.DISCLAIMER +
+      '<br>Bands (adjusted score): ' + legend;
+  })();
 
   document.getElementById('importBtn').addEventListener('click', () => {
     const p = document.getElementById('importPanel');
