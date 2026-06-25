@@ -34,13 +34,37 @@
     padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; font-weight: 600;
   }
   .controls button.active { background: var(--accent); color: #10220a; border-color: var(--accent); }
-  .controls button#refreshBtn { margin-left: auto; }
+  .controls button#importBtn { margin-left: auto; }
   .summary { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
   .stat { background: var(--panel); border-radius: 10px; padding: 10px 14px; flex: 1; min-width: 100px; }
   .stat .label { font-size: 0.7rem; color: #9fb0c4; text-transform: uppercase; letter-spacing: 0.5px; }
   .stat .val { font-size: 1.1rem; font-weight: 700; margin-top: 2px; }
   .status { font-size: 0.75rem; color: #7e90a6; margin-bottom: 12px; min-height: 1em; }
-  table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+
+  /* Import / OCR panel */
+  .import-panel { background: var(--panel); border: 1px solid #3d506b; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .import-panel h2 { font-size: 0.9rem; margin: 0 0 8px; color: #cdd9e8; }
+  .import-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .import-panel label { font-size: 0.8rem; color: #cdd9e8; display: flex; gap: 6px; align-items: center; }
+  .import-panel select, .import-panel input[type=file] {
+    background: #1e2a3a; color: #cdd9e8; border: 1px solid #3d506b; border-radius: 6px; padding: 6px; font-size: 0.8rem;
+  }
+  .import-panel button { background: var(--accent); color: #10220a; border: none; border-radius: 6px; padding: 7px 12px; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
+  .import-panel button.ghost { background: transparent; color: #cdd9e8; border: 1px solid #3d506b; }
+  .import-prog { font-size: 0.78rem; color: #9fb0c4; margin: 6px 0; min-height: 1em; }
+  .import-hint { font-size: 0.72rem; color: #7e90a6; margin-top: 4px; }
+  table.review { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 8px; }
+  table.review th, table.review td { border: 1px solid #3d506b; padding: 4px 6px; text-align: left; }
+  table.review th { color: #9fb0c4; font-weight: 600; }
+  table.review input { width: 100%; background: #1e2a3a; color: #fff; border: 1px solid #3d506b; border-radius: 4px; padding: 4px; font-size: 0.8rem; }
+  table.review input.rv-tag { width: 64px; }
+  table.review input[type=checkbox] { width: auto; }
+  .rv-status.ok { color: var(--accent); font-weight: 700; }
+  .rv-status.new { color: var(--gold); font-weight: 700; }
+  .import-actions { margin-top: 10px; display: flex; gap: 8px; }
+  .muted { color: #7e90a6; font-size: 0.8rem; }
+
+  table.roster { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
   thead th {
     text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;
     color: #9fb0c4; padding: 6px 10px; position: sticky; top: 0; background: var(--bg);
@@ -82,12 +106,30 @@
     <button data-sort="kills">Sort by Kills</button>
     <button data-sort="core">Core first</button>
     <button data-sort="name">Sort by Name</button>
-    <button id="refreshBtn" title="Reload shared marks">&#8635; Refresh</button>
+    <button id="importBtn" title="Import stats from a screenshot">&#11014; Import</button>
+    <button id="refreshBtn" title="Reload shared data">&#8635; Refresh</button>
   </div>
 
-  <div class="status" id="status">Loading shared core marks&hellip;</div>
+  <div class="import-panel" id="importPanel" hidden>
+    <h2>Import stats from a screenshot</h2>
+    <div class="import-row">
+      <label>Screenshot is:
+        <select id="ocrType">
+          <option value="thp">Total Hero Power (keeps [UP7] only)</option>
+          <option value="kills">Kills</option>
+        </select>
+      </label>
+      <input type="file" id="ocrFile" accept="image/*" multiple>
+      <button id="ocrRun">Run OCR</button>
+    </div>
+    <div class="import-prog" id="ocrProgress"></div>
+    <div id="ocrReview"></div>
+    <div class="import-hint">Runs entirely in your browser (Tesseract.js). First run downloads the OCR engine (~a few MB), then it's cached. Top-ranked rows have low-contrast coloured text &mdash; double-check those in the review grid before applying.</div>
+  </div>
 
-  <table>
+  <div class="status" id="status">Loading shared data&hellip;</div>
+
+  <table class="roster">
     <thead>
       <tr>
         <th>#</th>
@@ -102,8 +144,9 @@
 
   <footer>&#9733; Core marks are shared &mdash; everyone with this link sees and edits the same set. TBC = THP not yet captured.</footer>
 
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script>
-  const data = [
+  const SEED = [
     {name:"MML", thp:175778224, kills:41.18},
     {name:"Papa Pagh", thp:163478447, kills:19.28},
     {name:"Big D", thp:157474216, kills:1.65},
@@ -206,39 +249,46 @@
   ];
 
   // ---- Shared storage (JSONBin.io) ------------------------------------------
-  // binId + accessKey are filled in once the bin is created. The access key is a
-  // low-privilege Read+Update key (NOT the master key) and is intentionally
-  // visible in this public page, so anyone with the link can read/edit the
-  // shared core marks. Concurrent edits are last-write-wins. A localStorage copy
-  // is always kept so the page works offline and renders instantly.
+  // The bin holds BOTH the shared core marks and the roster itself, so OCR
+  // imports and edits persist for everyone. The access key is a low-privilege
+  // Read+Update key (NOT the master key) and is intentionally visible in this
+  // public page. Concurrent edits are last-write-wins. A localStorage copy is
+  // always kept so the page works offline and renders instantly.
   const JSONBIN = {
     binId: '6a3d3011da38895dfefd77ce',
     accessKey: '$2a$10$egxZyu05krfM.7bD6.6YMOYkS5JCyTRZms/QZb2xl9jqCANWuEFlG',
     base: 'https://api.jsonbin.io/v3/b'
   };
-  const LOCAL_KEY = 'up7-core-members';
+  const LOCAL_KEY = 'up7-state';
   const configured = () => Boolean(JSONBIN.binId && JSONBIN.accessKey);
 
   const tbody = document.getElementById('tbody');
   const statusEl = document.getElementById('status');
   const fmt = n => n.toLocaleString('en-US');
+  const norm = s => (s || '').toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
+  let roster = SEED.map(m => ({ ...m }));
   let core = new Set();
   let currentSort = 'thp';
 
   function cacheLocal() {
-    try { localStorage.setItem(LOCAL_KEY, JSON.stringify([...core])); } catch (e) {}
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ core: [...core], roster })); } catch (e) {}
   }
 
-  async function loadCore() {
+  async function loadState() {
     // Instant render from the local cache first.
     try {
-      const cached = localStorage.getItem(LOCAL_KEY);
-      if (cached) core = new Set(JSON.parse(cached));
+      const c = localStorage.getItem(LOCAL_KEY);
+      if (c) {
+        const o = JSON.parse(c);
+        if (Array.isArray(o.core)) core = new Set(o.core);
+        if (Array.isArray(o.roster) && o.roster.length) roster = o.roster;
+      }
     } catch (e) {}
 
     if (!configured()) {
-      statusEl.textContent = 'Shared storage not configured — ★ marks save to this device only.';
+      statusEl.textContent = 'Shared storage not configured — changes save to this device only.';
       return;
     }
     try {
@@ -246,60 +296,68 @@
         headers: { 'X-Access-Key': JSONBIN.accessKey, 'X-Bin-Meta': 'false' }
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      const record = await res.json();
-      const list = Array.isArray(record) ? record : (record.core || []);
-      core = new Set(list);
+      const rec = await res.json();
+      if (Array.isArray(rec.core)) core = new Set(rec.core);
+      if (Array.isArray(rec.roster) && rec.roster.length) {
+        roster = rec.roster;
+      } else {
+        await saveState(true); // seed the bin with the starting roster
+      }
       cacheLocal();
-      statusEl.textContent = 'Shared core marks loaded.';
+      statusEl.textContent = 'Shared data loaded.';
     } catch (e) {
       statusEl.textContent = 'Could not reach shared storage — showing local copy.';
     }
   }
 
-  async function saveCore() {
+  async function saveState(silent) {
     cacheLocal();
     if (!configured()) {
-      statusEl.textContent = 'Saved to this device.';
+      if (!silent) statusEl.textContent = 'Saved to this device.';
       return;
     }
-    statusEl.textContent = 'Saving…';
+    if (!silent) statusEl.textContent = 'Saving…';
     try {
       const res = await fetch(JSONBIN.base + '/' + JSONBIN.binId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-Access-Key': JSONBIN.accessKey },
-        body: JSON.stringify({ core: [...core] })
+        body: JSON.stringify({ core: [...core], roster })
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      statusEl.textContent = 'Saved & shared.';
+      if (!silent) statusEl.textContent = 'Saved & shared.';
     } catch (e) {
-      statusEl.textContent = 'Could not save to shared storage (saved locally).';
+      if (!silent) statusEl.textContent = 'Could not save to shared storage (saved locally).';
     }
   }
 
   async function toggleCore(name) {
     if (core.has(name)) core.delete(name); else core.add(name);
-    updateSummary();
+    updateStats();
     render(currentSort);
-    await saveCore();
+    await saveState();
   }
 
-  function updateSummary() {
+  function updateStats() {
+    document.getElementById('memberCount').textContent = roster.length;
     document.getElementById('coreCount').textContent = core.size;
+    const withThp = roster.filter(m => m.thp != null);
+    document.getElementById('totalThp').textContent = (withThp.reduce((s, m) => s + m.thp, 0) / 1e9).toFixed(2) + 'B';
+    document.getElementById('totalKills').textContent = roster.reduce((s, m) => s + (Number(m.kills) || 0), 0).toFixed(1) + 'M';
   }
 
   function render(sortKey) {
     currentSort = sortKey;
-    const sorted = [...data].sort((a,b) => {
+    const sorted = [...roster].sort((a, b) => {
       if (sortKey === 'name') return a.name.localeCompare(b.name);
-      if (sortKey === 'kills') return b.kills - a.kills;
+      if (sortKey === 'kills') return (b.kills || 0) - (a.kills || 0);
       if (sortKey === 'core') {
         const ca = core.has(a.name) ? 1 : 0;
         const cb = core.has(b.name) ? 1 : 0;
         if (ca !== cb) return cb - ca;
       }
-      if (a.thp === null && b.thp === null) return b.kills - a.kills;
-      if (a.thp === null) return 1;
-      if (b.thp === null) return -1;
+      if (a.thp == null && b.thp == null) return (b.kills || 0) - (a.kills || 0);
+      if (a.thp == null) return 1;
+      if (b.thp == null) return -1;
       return b.thp - a.thp;
     });
 
@@ -313,16 +371,16 @@
       if (core.has(m.name)) classes.push('is-core');
       tr.className = classes.join(' ');
 
-      const thpCell = m.thp === null
+      const thpCell = m.thp == null
         ? '<td class="num tbc">TBC</td>'
         : '<td class="num">' + fmt(m.thp) + '</td>';
       const on = core.has(m.name) ? 'on' : '';
-      const safeName = m.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      const safeName = m.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
       tr.innerHTML =
-        '<td>' + (i+1) + '</td>' +
+        '<td>' + (i + 1) + '</td>' +
         '<td class="name">' + safeName + '</td>' +
         thpCell +
-        '<td class="num">' + m.kills.toFixed(2) + '</td>' +
+        '<td class="num">' + (Number(m.kills) || 0).toFixed(2) + '</td>' +
         '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>';
       tbody.appendChild(tr);
     });
@@ -330,17 +388,185 @@
     tbody.querySelectorAll('.star').forEach(s => {
       s.addEventListener('click', () => {
         const raw = s.getAttribute('data-name')
-          .replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&amp;/g,'&');
+          .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
         toggleCore(raw);
       });
     });
   }
 
-  const withThp = data.filter(m => m.thp !== null);
-  document.getElementById('memberCount').textContent = data.length;
-  document.getElementById('totalThp').textContent = (withThp.reduce((s,m)=>s+m.thp,0)/1e9).toFixed(2) + 'B';
-  document.getElementById('totalKills').textContent = data.reduce((s,m)=>s+m.kills,0).toFixed(1) + 'M';
+  // ---- OCR import (Tesseract.js, in-browser) --------------------------------
+  function loadImage(file) {
+    return new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => res(img);
+      img.onerror = rej;
+      img.src = URL.createObjectURL(file);
+    });
+  }
 
+  // Grayscale + upscale + light contrast stretch to help Tesseract on the
+  // small/stylised game UI text.
+  async function preprocess(file) {
+    const img = await loadImage(file);
+    const scale = img.width < 1100 ? 2 : 1.4;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    try {
+      const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        let g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        g = (g - 128) * 1.35 + 128;
+        g = g < 0 ? 0 : g > 255 ? 255 : g;
+        d[i] = d[i + 1] = d[i + 2] = g;
+      }
+      ctx.putImageData(id, 0, 0);
+    } catch (e) { /* tainted canvas etc. — fall back to raw */ }
+    return canvas;
+  }
+
+  // Turn raw OCR lines into {name, value, tag, include} candidate rows.
+  function parseLines(lines, type) {
+    const out = [];
+    for (let raw of lines) {
+      let line = (raw || '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+      if (!line) continue;
+
+      const nm = line.match(/(\d[\d.,]*\d|\d)\s*$/);
+      if (!nm) continue;
+      const valStr = nm[1].replace(/[.,\s]/g, '');
+      if (!/^\d+$/.test(valStr) || valStr.length < 2) continue;
+
+      let rest = line.slice(0, nm.index).trim();
+      rest = rest.replace(/^\d{1,3}\s+/, ''); // drop a leading rank number (must be space-separated)
+
+      let tag = '';
+      if (type === 'thp') {
+        const tm = rest.match(/[\[(]\s*([A-Za-z0-9]{2,6})\s*[\])]/);
+        if (tm) { tag = tm[1]; rest = rest.slice(tm.index + tm[0].length); }
+      } else {
+        rest = rest.replace(/^\s*R\s?\d\s+/i, ''); // drop R3/R4/R5 role badge
+      }
+
+      const name = rest.replace(/^[^\p{L}\p{N}]+/u, '').replace(/[^\p{L}\p{N}]+$/u, '').trim();
+      if (!name) continue;
+
+      const include = type === 'thp' ? (tag.toUpperCase() === 'UP7') : true;
+      out.push({ name, value: parseInt(valStr, 10), tag, include });
+    }
+
+    // De-duplicate by normalized name (e.g. the pinned "you" row), keep larger value.
+    const seen = new Map();
+    for (const r of out) {
+      const k = norm(r.name);
+      if (!k) continue;
+      const e = seen.get(k);
+      if (!e || r.value > e.value) seen.set(k, r);
+    }
+    return [...seen.values()];
+  }
+
+  function updateRowStatus(tr) {
+    const name = tr.querySelector('.rv-name').value.trim();
+    const st = tr.querySelector('.rv-status');
+    if (!name) { st.textContent = '—'; st.className = 'rv-status'; return; }
+    const m = roster.find(x => norm(x.name) === norm(name));
+    if (m) { st.textContent = 'update'; st.className = 'rv-status ok'; }
+    else { st.textContent = 'NEW'; st.className = 'rv-status new'; }
+  }
+
+  function showReview(rows, type) {
+    const review = document.getElementById('ocrReview');
+    if (!rows.length) {
+      review.innerHTML = '<p class="muted">No rows detected. Try a larger / clearer screenshot, or check the screenshot type.</p>';
+      return;
+    }
+    const valHead = type === 'thp' ? 'Power' : 'Kills (raw)';
+    let html = '<table class="review"><thead><tr><th>✓</th>' +
+      (type === 'thp' ? '<th>Tag</th>' : '') +
+      '<th>Name</th><th>' + valHead + '</th><th>Status</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      html += '<tr data-i="' + i + '">' +
+        '<td><input type="checkbox" class="rv-inc"' + (r.include ? ' checked' : '') + '></td>' +
+        (type === 'thp' ? ('<td><input class="rv-tag" value="' + escAttr(r.tag) + '"></td>') : '') +
+        '<td><input class="rv-name" value="' + escAttr(r.name) + '"></td>' +
+        '<td><input class="rv-val" type="text" inputmode="numeric" value="' + r.value + '"></td>' +
+        '<td class="rv-status"></td></tr>';
+    });
+    html += '</tbody></table>' +
+      '<div class="import-actions"><button id="ocrApply">Apply checked rows</button>' +
+      '<button id="ocrCancelReview" class="ghost">Discard</button></div>';
+    review.innerHTML = html;
+
+    review.querySelectorAll('tr[data-i]').forEach(tr => {
+      updateRowStatus(tr);
+      tr.querySelector('.rv-name').addEventListener('input', () => updateRowStatus(tr));
+    });
+    document.getElementById('ocrApply').onclick = () => applyReview(type);
+    document.getElementById('ocrCancelReview').onclick = () => { review.innerHTML = ''; };
+  }
+
+  function applyReview(type) {
+    const trs = [...document.querySelectorAll('#ocrReview tr[data-i]')];
+    let updated = 0, added = 0;
+    for (const tr of trs) {
+      if (!tr.querySelector('.rv-inc').checked) continue;
+      const name = tr.querySelector('.rv-name').value.trim();
+      const valStr = tr.querySelector('.rv-val').value.replace(/[^\d]/g, '');
+      if (!name || !valStr) continue;
+      const val = parseInt(valStr, 10);
+      if (!val) continue;
+
+      let m = roster.find(x => norm(x.name) === norm(name));
+      if (!m) { m = { name, thp: null, kills: 0 }; roster.push(m); added++; }
+      else updated++;
+      if (type === 'thp') m.thp = val;
+      else m.kills = val / 1e6;
+    }
+    document.getElementById('ocrReview').innerHTML = '';
+    updateStats();
+    render(currentSort);
+    saveState();
+    statusEl.textContent = 'Imported ' + type.toUpperCase() + ': ' + updated + ' updated, ' + added + ' added.';
+  }
+
+  async function runOCR() {
+    const type = document.getElementById('ocrType').value;
+    const files = [...document.getElementById('ocrFile').files];
+    const prog = document.getElementById('ocrProgress');
+    if (!files.length) { prog.textContent = 'Choose one or more screenshots first.'; return; }
+    if (typeof Tesseract === 'undefined') { prog.textContent = 'OCR engine failed to load (offline?). Check your connection and reload.'; return; }
+
+    let allLines = [];
+    try {
+      for (let f = 0; f < files.length; f++) {
+        prog.textContent = 'Reading image ' + (f + 1) + '/' + files.length + '… preparing';
+        const canvas = await preprocess(files[f]);
+        const { data } = await Tesseract.recognize(canvas, 'eng', {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              prog.textContent = 'Reading image ' + (f + 1) + '/' + files.length + '… ' + Math.round(m.progress * 100) + '%';
+            }
+          }
+        });
+        allLines = allLines.concat((data.lines || []).map(l => l.text));
+      }
+    } catch (e) {
+      prog.textContent = 'OCR failed: ' + e.message;
+      return;
+    }
+
+    const rows = parseLines(allLines, type);
+    prog.textContent = 'Detected ' + rows.length + ' candidate row(s) — review and apply below.';
+    showReview(rows, type);
+  }
+
+  // ---- Wiring ---------------------------------------------------------------
   document.querySelectorAll('.controls button[data-sort]').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.controls button[data-sort]').forEach(b => b.classList.remove('active'));
@@ -349,22 +575,43 @@
     });
   });
 
+  document.getElementById('importBtn').addEventListener('click', () => {
+    const p = document.getElementById('importPanel');
+    p.hidden = !p.hidden;
+  });
+  document.getElementById('ocrRun').addEventListener('click', runOCR);
+
+  // Paste a screenshot straight in while the import panel is open.
+  document.addEventListener('paste', e => {
+    const p = document.getElementById('importPanel');
+    if (p.hidden) return;
+    const items = [...((e.clipboardData && e.clipboardData.items) || [])];
+    const imgItem = items.find(it => it.type && it.type.startsWith('image/'));
+    if (imgItem) {
+      const file = imgItem.getAsFile();
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      document.getElementById('ocrFile').files = dt.files;
+      document.getElementById('ocrProgress').textContent = 'Pasted image ready — click Run OCR.';
+    }
+  });
+
   document.getElementById('refreshBtn').addEventListener('click', async () => {
-    await loadCore();
-    updateSummary();
+    await loadState();
+    updateStats();
     render(currentSort);
   });
 
-  // Re-sync shared marks when the tab regains focus (quota-friendly: no polling).
+  // Re-sync shared data when the tab regains focus (quota-friendly: no polling).
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && configured()) {
-      loadCore().then(() => { updateSummary(); render(currentSort); });
+      loadState().then(() => { updateStats(); render(currentSort); });
     }
   });
 
   (async () => {
-    await loadCore();
-    updateSummary();
+    await loadState();
+    updateStats();
     render('thp');
   })();
 </script>
