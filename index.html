@@ -94,6 +94,8 @@
   .seat-Purple { background: #8a63d2; color: #fff; }
   .seat-Gold { background: var(--gold); color: #3a2c08; }
   .seat-conf { font-size: 0.65rem; color: #5a6a7d; margin-top: 2px; }
+  .stat .val .seat-badge { font-size: 0.8rem; margin-right: 2px; }
+  .seat-na { font-size: 0.72rem; color: #7e90a6; font-weight: 600; }
   .seat-note { background: var(--panel); border: 1px solid #3d506b; border-radius: 8px; padding: 8px 12px; font-size: 0.72rem; color: #9fb0c4; margin-bottom: 12px; line-height: 1.7; }
   .seat-note strong { color: #cdd9e8; }
   .name { font-weight: 700; }
@@ -110,6 +112,7 @@
   <div class="summary">
     <div class="stat"><div class="label">Members</div><div class="val" id="memberCount">&mdash;</div></div>
     <div class="stat"><div class="label">Core</div><div class="val" id="coreCount">&mdash;</div></div>
+    <div class="stat"><div class="label">Core seats</div><div class="val" id="coreSeats">&mdash;</div></div>
     <div class="stat"><div class="label">Total THP</div><div class="val" id="totalThp">&mdash;</div></div>
     <div class="stat"><div class="label">Total Kills</div><div class="val" id="totalKills">&mdash;</div></div>
     <div class="stat"><div class="label">Squad 1 logged</div><div class="val" id="squadLogged">&mdash;</div></div>
@@ -411,6 +414,23 @@
     document.getElementById('totalThp').textContent = (withThp.reduce((s, m) => s + m.thp, 0) / 1e9).toFixed(2) + 'B';
     document.getElementById('totalKills').textContent = roster.reduce((s, m) => s + (Number(m.kills) || 0), 0).toFixed(1) + 'M';
     document.getElementById('squadLogged').textContent = roster.filter(m => m.squad1 != null).length + '/' + roster.length;
+
+    // Core members broken down by estimated seat band
+    const seatCounts = { Gold: 0, Purple: 0, Blue: 0, White: 0, na: 0 };
+    roster.forEach(m => {
+      if (!core.has(m.name)) return;
+      const e = seatOf(m);
+      if (e && e.colour) seatCounts[e.colour]++; else seatCounts.na++;
+    });
+    const csEl = document.getElementById('coreSeats');
+    if (core.size === 0) {
+      csEl.innerHTML = '&mdash;';
+    } else {
+      let html = ['Gold', 'Purple', 'Blue', 'White']
+        .map(c => '<span class="seat-badge seat-' + c + '" title="' + c + '">' + seatCounts[c] + '</span>').join(' ');
+      if (seatCounts.na) html += ' <span class="seat-na">' + seatCounts.na + ' n/a</span>';
+      csEl.innerHTML = html;
+    }
   }
 
   function seatOf(m) {
