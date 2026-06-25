@@ -42,44 +42,43 @@
 
     var hasSquad = squad1M != null && isFinite(squad1M) && squad1M > 0;
     var flags = [];
-
-    // When Squad 1 is missing, estimate it as 30% of THP so the member is no
-    // longer scored on the (much lower) THP-only scale. Confidence stays Low.
     var estimated = !hasSquad;
-    var estimatedSquad1M = null;
-    var effectiveSquad1M;
-    if (hasSquad) {
-      effectiveSquad1M = squad1M;
-    } else {
-      effectiveSquad1M = 0.30 * thpM;
-      estimatedSquad1M = effectiveSquad1M;
-      flags.push('Squad 1 estimated from THP');
-    }
 
-    // Core formula (always uses a Squad 1 value, real or estimated)
-    var rawScore = (0.75 * thpM) + (3 * effectiveSquad1M);
-
-    // Balance adjustment (estimated ratio is exactly 0.30, so it never trips)
+    // Score formula. THP now carries most of the weight; Squad 1 stays
+    // important but is no longer over-weighted (the old 3× factor over-promoted
+    // squad-heavy accounts). When Squad 1 is missing, fall back to a THP-only
+    // estimate (1.75 × THP) and keep confidence Low.
+    var rawScore;
     var squadRatio = null;
     var adjustment = 0;
     var balanceFlag = null;
-    if (thpM > 0) {
-      var ratio = effectiveSquad1M / thpM;
-      squadRatio = Math.round(ratio * 10000) / 10000;
-      if (ratio >= 0.40) { balanceFlag = 'Glass cannon build'; adjustment = -25; }
-      else if (ratio >= 0.35) { balanceFlag = 'Squad-heavy build'; adjustment = -15; }
-      else if (ratio <= 0.22) { balanceFlag = 'Broad but underpowered main squad'; adjustment = -10; }
-      if (balanceFlag) flags.push(balanceFlag);
+    if (hasSquad) {
+      rawScore = (0.85 * thpM) + (2.3 * squad1M);
+
+      // Balance adjustment based on the Squad 1 / THP ratio.
+      if (thpM > 0) {
+        var ratio = squad1M / thpM;
+        squadRatio = Math.round(ratio * 10000) / 10000;
+        if (ratio >= 0.40) { balanceFlag = 'Glass cannon build'; adjustment = -15; }
+        else if (ratio >= 0.35) { balanceFlag = 'Squad-heavy build'; adjustment = -10; }
+        else if (ratio <= 0.22) { balanceFlag = 'Broad but underpowered main squad'; adjustment = -10; }
+        if (balanceFlag) flags.push(balanceFlag);
+      }
+    } else {
+      rawScore = 1.75 * thpM;
+      flags.push('Estimated from THP (no Squad 1)');
     }
 
-    var adjustedScore = rawScore + adjustment;
+    // Round away binary-float dust so scores compare/display cleanly.
+    rawScore = Math.round(rawScore * 100) / 100;
+    var adjustedScore = Math.round((rawScore + adjustment) * 100) / 100;
 
     // Seat band
     var band = SEAT_BANDS.find(function (b) { return adjustedScore >= b.min && adjustedScore < b.max; });
     if (!band) band = SEAT_BANDS[SEAT_BANDS.length - 1];
     var seat = band.colour + ' / ' + band.role;
 
-    // Confidence — Low whenever Squad 1 was estimated
+    // Confidence — Low whenever the score is a THP-only estimate (no Squad 1).
     var confidence;
     if (estimated) {
       confidence = 'Low';
@@ -94,8 +93,8 @@
     // Human-readable explanation
     var r2 = function (x) { return Math.round(x * 100) / 100; };
     var base = estimated
-      ? 'THP ' + r2(thpM) + 'M, Squad 1 estimated ' + r2(effectiveSquad1M) + 'M (30% of THP)'
-      : 'THP ' + r2(thpM) + 'M + Squad 1 ' + r2(effectiveSquad1M) + 'M';
+      ? 'THP ' + r2(thpM) + 'M, no Squad 1 → THP-only estimate (1.75 × THP)'
+      : 'THP ' + r2(thpM) + 'M + Squad 1 ' + r2(squad1M) + 'M';
     var explanation = base + ' → raw ' + r2(rawScore);
     if (adjustment !== 0) explanation += ', ' + balanceFlag + ' ' + adjustment + ' (squad/THP ' + squadRatio + ')';
     explanation += ' → adjusted ' + r2(adjustedScore) + ' = ' + seat + ' · ' + confidence + ' confidence';
@@ -111,7 +110,6 @@
       adjustment: adjustment,
       flags: flags,
       estimated: estimated,
-      estimatedSquad1M: estimatedSquad1M,
       explanation: explanation
     };
   }
