@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[UP7] Alliance Roster</title>
+<style>
+  :root {
+    --bg: #1e2a3a;
+    --panel: #2b3a4f;
+    --row: #c9d4e3;
+    --row-alt: #d6dfeb;
+    --accent: #6cc24a;
+    --gold: #f2c14e;
+    --silver: #c4cdd6;
+    --bronze: #cd9b6a;
+    --text-dark: #1e2a3a;
+    --tbc: #b06a6a;
+    --core: #f2c14e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: #fff;
+    padding: 16px;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; letter-spacing: 0.5px; }
+  .sub { color: #9fb0c4; font-size: 0.85rem; margin-bottom: 16px; }
+  .controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .controls button {
+    background: var(--panel); color: #cdd9e8; border: 1px solid #3d506b;
+    padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; font-weight: 600;
+  }
+  .controls button.active { background: var(--accent); color: #10220a; border-color: var(--accent); }
+  .controls button#refreshBtn { margin-left: auto; }
+  .summary { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .stat { background: var(--panel); border-radius: 10px; padding: 10px 14px; flex: 1; min-width: 100px; }
+  .stat .label { font-size: 0.7rem; color: #9fb0c4; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat .val { font-size: 1.1rem; font-weight: 700; margin-top: 2px; }
+  .status { font-size: 0.75rem; color: #7e90a6; margin-bottom: 12px; min-height: 1em; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+  thead th {
+    text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;
+    color: #9fb0c4; padding: 6px 10px; position: sticky; top: 0; background: var(--bg);
+  }
+  thead th.num { text-align: right; }
+  thead th.core { text-align: center; width: 48px; }
+  tbody tr { background: var(--row); color: var(--text-dark); }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr.rank1 { background: var(--gold); }
+  tbody tr.rank2 { background: var(--silver); }
+  tbody tr.rank3 { background: var(--bronze); }
+  tbody tr.is-core { box-shadow: inset 3px 0 0 var(--core); }
+  td { padding: 10px; font-size: 0.9rem; font-weight: 600; }
+  td:first-child { border-radius: 8px 0 0 8px; width: 36px; color: #5a6a7d; }
+  td:last-child { border-radius: 0 8px 8px 0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.tbc { color: var(--tbc); font-style: italic; }
+  td.core { text-align: center; }
+  .name { font-weight: 700; }
+  .star { cursor: pointer; font-size: 1.15rem; line-height: 1; user-select: none; opacity: 0.35; transition: opacity .1s, transform .1s; }
+  .star.on { opacity: 1; }
+  .star:active { transform: scale(0.8); }
+  footer { margin-top: 16px; color: #7e90a6; font-size: 0.75rem; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>&#9876;&#65039; [UP7] Alliance Roster</h1>
+  <div class="sub">Total Hero Power &amp; Kills &middot; tap a header to sort &middot; tap &#9733; to mark core</div>
+
+  <div class="summary">
+    <div class="stat"><div class="label">Members</div><div class="val" id="memberCount">&mdash;</div></div>
+    <div class="stat"><div class="label">Core</div><div class="val" id="coreCount">&mdash;</div></div>
+    <div class="stat"><div class="label">Total THP</div><div class="val" id="totalThp">&mdash;</div></div>
+    <div class="stat"><div class="label">Total Kills</div><div class="val" id="totalKills">&mdash;</div></div>
+  </div>
+
+  <div class="controls">
+    <button data-sort="thp" class="active">Sort by THP</button>
+    <button data-sort="kills">Sort by Kills</button>
+    <button data-sort="core">Core first</button>
+    <button data-sort="name">Sort by Name</button>
+    <button id="refreshBtn" title="Reload shared marks">&#8635; Refresh</button>
+  </div>
+
+  <div class="status" id="status">Loading shared core marks&hellip;</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Commander</th>
+        <th class="num">THP</th>
+        <th class="num">Kills (M)</th>
+        <th class="core">Core</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <footer>&#9733; Core marks are shared &mdash; everyone with this link sees and edits the same set. TBC = THP not yet captured.</footer>
+
+<script>
+  const data = [
+    {name:"MML", thp:175778224, kills:41.18},
+    {name:"Papa Pagh", thp:163478447, kills:19.28},
+    {name:"Big D", thp:157474216, kills:1.65},
+    {name:"JDKOfficial", thp:145501933, kills:5.31},
+    {name:"Bearror404", thp:145158072, kills:2.85},
+    {name:"Lionstray", thp:142743838, kills:0.79},
+    {name:"SNC2N Shaun", thp:142008953, kills:5.89},
+    {name:"Husk In Love", thp:138654217, kills:13.04},
+    {name:"PHOENIX WICK", thp:138192873, kills:2.82},
+    {name:"naazgul", thp:137777048, kills:3.85},
+    {name:"SaEed15", thp:137216116, kills:4.83},
+    {name:"Eddie James II", thp:136761704, kills:3.65},
+    {name:"AxRO10", thp:134539188, kills:5.94},
+    {name:"Pawel124", thp:132166434, kills:1.93},
+    {name:"Joker Pjoter", thp:131896578, kills:0.95},
+    {name:"LanaBananaa", thp:130660171, kills:1.39},
+    {name:"Eternal Junbas", thp:129340833, kills:2.54},
+    {name:"Gun JRP", thp:127361023, kills:1.33},
+    {name:"flatliner111", thp:125635529, kills:0.37},
+    {name:"Calamity Arte", thp:125310575, kills:0.82},
+    {name:"7GRUT", thp:125023577, kills:2.69},
+    {name:"Don P Don", thp:123288925, kills:2.23},
+    {name:"Nurkian", thp:122795889, kills:0.50},
+    {name:"Karolina212", thp:121667379, kills:0.29},
+    {name:"Mr Fuma", thp:121467309, kills:0.74},
+    {name:"Gökturk", thp:120952097, kills:0.78},
+    {name:"miniaturist", thp:118971640, kills:0.40},
+    {name:"royaluus", thp:118663973, kills:0.72},
+    {name:"Gökhan190303", thp:118282214, kills:0.74},
+    {name:"Hossss1234", thp:116884309, kills:4.81},
+    {name:"Aluxie", thp:116842266, kills:0.37},
+    {name:"MVDiesel", thp:116363883, kills:0.43},
+    {name:"papy56", thp:116119445, kills:0.37},
+    {name:"Abu Ameer1002", thp:115852309, kills:0.48},
+    {name:"Mitchffm", thp:115570856, kills:0.12},
+    {name:"Biggunsbigarmy", thp:115244106, kills:0.18},
+    {name:"Choops29", thp:115023790, kills:3.20},
+    {name:"Hoodedx", thp:114776944, kills:0.29},
+    {name:"G K R", thp:114165216, kills:0.23},
+    {name:"boss girli", thp:114045578, kills:0.29},
+    {name:"UP4 baby", thp:113587347, kills:1.27},
+    {name:"Sipppppppppppppppu", thp:112849384, kills:0.74},
+    {name:"Tétell", thp:112844907, kills:0.07},
+    {name:"titizz", thp:112615799, kills:0.46},
+    {name:"BOTTOR", thp:112385542, kills:0.08},
+    {name:"abo Najm", thp:112281208, kills:0.48},
+    {name:"Laz k", thp:111657511, kills:0.30},
+    {name:"soldjahone", thp:111069654, kills:0.40},
+    {name:"Rammer84", thp:110254924, kills:0.11},
+    {name:"choyrein", thp:110169596, kills:0.27},
+    {name:"Noubs", thp:107817039, kills:0.45},
+    {name:"mamadec", thp:107678828, kills:0.57},
+    {name:"Peeps21", thp:107647512, kills:0.14},
+    {name:"proprooro", thp:107064643, kills:0.91},
+    {name:"f33ly", thp:106989988, kills:0.30},
+    {name:"Nick Knatterton", thp:106159496, kills:0.03},
+    {name:"Paco1965", thp:105698904, kills:0.32},
+    {name:"BartFarst", thp:105481575, kills:0.15},
+    {name:"3XiLED", thp:105170246, kills:0.49},
+    {name:"Tor of the thunder", thp:104620482, kills:0.15},
+    {name:"spilerr", thp:104302648, kills:0.10},
+    {name:"Anneq", thp:101865367, kills:0.17},
+    {name:"Spawny9", thp:101762783, kills:0.06},
+    {name:"Dr No 23", thp:101453996, kills:0.24},
+    {name:"aDram", thp:101418750, kills:0.11},
+    {name:"Karrol", thp:101326054, kills:0.65},
+    {name:"Anatolii0123", thp:101140887, kills:0.20},
+    {name:"Muv99", thp:101102383, kills:0.33},
+    {name:"Roychuk", thp:98249827, kills:0.06},
+    {name:"fa7maa", thp:96970603, kills:0.39},
+    {name:"SNOOPY Gotti", thp:96603165, kills:0.13},
+    {name:"Maalina", thp:96597348, kills:0.19},
+    {name:"JAcA", thp:95348799, kills:0.39},
+    {name:"water Boy", thp:94643152, kills:0.29},
+    {name:"Steve 80", thp:94404909, kills:0.05},
+    {name:"MaXImuS", thp:93723345, kills:12.29},
+    {name:"Alinéacode126", thp:null, kills:3.56},
+    {name:"Pr1me M1n1ster", thp:null, kills:0.74},
+    {name:"Lerolli", thp:null, kills:0.88},
+    {name:"Lexa35", thp:null, kills:0.59},
+    {name:"Manuval", thp:null, kills:0.49},
+    {name:"Зулхар", thp:null, kills:0.28},
+    {name:"Davf 1 3", thp:null, kills:0.20},
+    {name:"seniori", thp:null, kills:0.16},
+    {name:"DJ Gerry", thp:null, kills:0.12},
+    {name:"Taylor Troops", thp:null, kills:0.08},
+    {name:"ArêS", thp:null, kills:0.08},
+    {name:"Ottel", thp:null, kills:0.07},
+    {name:"Andrea83x", thp:null, kills:0.06},
+    {name:"JustCallMeJim", thp:null, kills:0.06},
+    {name:"Zassaaaa", thp:null, kills:0.06},
+    {name:"JosephMarie", thp:null, kills:0.06},
+    {name:"Paola08", thp:null, kills:0.05},
+    {name:"Griki", thp:null, kills:0.05},
+    {name:"Satnav44", thp:null, kills:0.04},
+    {name:"HAiLEY", thp:null, kills:0.04},
+    {name:"zlaja75", thp:null, kills:0.04},
+    {name:"MFALCKB", thp:null, kills:0.03},
+    {name:"Hanuma123", thp:null, kills:0.0005}
+  ];
+
+  // ---- Shared storage (JSONBin.io) ------------------------------------------
+  // binId + accessKey are filled in once the bin is created. The access key is a
+  // low-privilege Read+Update key (NOT the master key) and is intentionally
+  // visible in this public page, so anyone with the link can read/edit the
+  // shared core marks. Concurrent edits are last-write-wins. A localStorage copy
+  // is always kept so the page works offline and renders instantly.
+  const JSONBIN = {
+    binId: '',
+    accessKey: '',
+    base: 'https://api.jsonbin.io/v3/b'
+  };
+  const LOCAL_KEY = 'up7-core-members';
+  const configured = () => Boolean(JSONBIN.binId && JSONBIN.accessKey);
+
+  const tbody = document.getElementById('tbody');
+  const statusEl = document.getElementById('status');
+  const fmt = n => n.toLocaleString('en-US');
+
+  let core = new Set();
+  let currentSort = 'thp';
+
+  function cacheLocal() {
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify([...core])); } catch (e) {}
+  }
+
+  async function loadCore() {
+    // Instant render from the local cache first.
+    try {
+      const cached = localStorage.getItem(LOCAL_KEY);
+      if (cached) core = new Set(JSON.parse(cached));
+    } catch (e) {}
+
+    if (!configured()) {
+      statusEl.textContent = 'Shared storage not configured — ★ marks save to this device only.';
+      return;
+    }
+    try {
+      const res = await fetch(JSONBIN.base + '/' + JSONBIN.binId + '/latest', {
+        headers: { 'X-Access-Key': JSONBIN.accessKey, 'X-Bin-Meta': 'false' }
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const record = await res.json();
+      const list = Array.isArray(record) ? record : (record.core || []);
+      core = new Set(list);
+      cacheLocal();
+      statusEl.textContent = 'Shared core marks loaded.';
+    } catch (e) {
+      statusEl.textContent = 'Could not reach shared storage — showing local copy.';
+    }
+  }
+
+  async function saveCore() {
+    cacheLocal();
+    if (!configured()) {
+      statusEl.textContent = 'Saved to this device.';
+      return;
+    }
+    statusEl.textContent = 'Saving…';
+    try {
+      const res = await fetch(JSONBIN.base + '/' + JSONBIN.binId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Access-Key': JSONBIN.accessKey },
+        body: JSON.stringify({ core: [...core] })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      statusEl.textContent = 'Saved & shared.';
+    } catch (e) {
+      statusEl.textContent = 'Could not save to shared storage (saved locally).';
+    }
+  }
+
+  async function toggleCore(name) {
+    if (core.has(name)) core.delete(name); else core.add(name);
+    updateSummary();
+    render(currentSort);
+    await saveCore();
+  }
+
+  function updateSummary() {
+    document.getElementById('coreCount').textContent = core.size;
+  }
+
+  function render(sortKey) {
+    currentSort = sortKey;
+    const sorted = [...data].sort((a,b) => {
+      if (sortKey === 'name') return a.name.localeCompare(b.name);
+      if (sortKey === 'kills') return b.kills - a.kills;
+      if (sortKey === 'core') {
+        const ca = core.has(a.name) ? 1 : 0;
+        const cb = core.has(b.name) ? 1 : 0;
+        if (ca !== cb) return cb - ca;
+      }
+      if (a.thp === null && b.thp === null) return b.kills - a.kills;
+      if (a.thp === null) return 1;
+      if (b.thp === null) return -1;
+      return b.thp - a.thp;
+    });
+
+    tbody.innerHTML = '';
+    sorted.forEach((m, i) => {
+      const tr = document.createElement('tr');
+      const classes = [];
+      if (sortKey === 'thp' && i === 0) classes.push('rank1');
+      else if (sortKey === 'thp' && i === 1) classes.push('rank2');
+      else if (sortKey === 'thp' && i === 2) classes.push('rank3');
+      if (core.has(m.name)) classes.push('is-core');
+      tr.className = classes.join(' ');
+
+      const thpCell = m.thp === null
+        ? '<td class="num tbc">TBC</td>'
+        : '<td class="num">' + fmt(m.thp) + '</td>';
+      const on = core.has(m.name) ? 'on' : '';
+      const safeName = m.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      tr.innerHTML =
+        '<td>' + (i+1) + '</td>' +
+        '<td class="name">' + safeName + '</td>' +
+        thpCell +
+        '<td class="num">' + m.kills.toFixed(2) + '</td>' +
+        '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>';
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('.star').forEach(s => {
+      s.addEventListener('click', () => {
+        const raw = s.getAttribute('data-name')
+          .replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&amp;/g,'&');
+        toggleCore(raw);
+      });
+    });
+  }
+
+  const withThp = data.filter(m => m.thp !== null);
+  document.getElementById('memberCount').textContent = data.length;
+  document.getElementById('totalThp').textContent = (withThp.reduce((s,m)=>s+m.thp,0)/1e9).toFixed(2) + 'B';
+  document.getElementById('totalKills').textContent = data.reduce((s,m)=>s+m.kills,0).toFixed(1) + 'M';
+
+  document.querySelectorAll('.controls button[data-sort]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.controls button[data-sort]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render(btn.dataset.sort);
+    });
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', async () => {
+    await loadCore();
+    updateSummary();
+    render(currentSort);
+  });
+
+  // Re-sync shared marks when the tab regains focus (quota-friendly: no polling).
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && configured()) {
+      loadCore().then(() => { updateSummary(); render(currentSort); });
+    }
+  });
+
+  (async () => {
+    await loadCore();
+    updateSummary();
+    render('thp');
+  })();
+</script>
+</body>
+</html>
