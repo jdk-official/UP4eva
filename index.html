@@ -82,7 +82,8 @@
   td:last-child { border-radius: 0 8px 8px 0; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
   td.tbc { color: var(--tbc); font-style: italic; }
-  td.core { text-align: center; }
+  .thp-short { display: none; } /* abbreviated THP (e.g. 175.8M) — shown only on narrow screens */
+  td.core { text-align: center; cursor: pointer; }
   td.squad1 { cursor: pointer; }
   td.squad1:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
   input.squad-edit { width: 84px; text-align: right; background: #fff; color: var(--text-dark); border: 1px solid var(--accent); border-radius: 4px; padding: 4px; font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -103,6 +104,33 @@
   .star.on { opacity: 1; }
   .star:active { transform: scale(0.8); }
   footer { margin-top: 16px; color: #7e90a6; font-size: 0.75rem; text-align: center; }
+
+  /* ---- Phone layout: shrink the roster table so it fits without the whole
+     page scrolling sideways. Horizontal scroll on the table itself is kept as
+     a safety net for very narrow screens. Desktop is unaffected. ---- */
+  @media (max-width: 480px) {
+    body { padding: 10px; }
+    h1 { font-size: 1.2rem; }
+    .sub { font-size: 0.76rem; }
+    .summary { gap: 8px; }
+    .stat { flex: 1 1 calc(33.33% - 8px); min-width: 0; padding: 8px; }
+    .stat .label { font-size: 0.62rem; }
+    .stat .val { font-size: 0.95rem; }
+    .controls { gap: 6px; }
+    .controls button { padding: 7px 9px; font-size: 0.78rem; }
+
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    thead th { padding: 6px 4px; font-size: 0.6rem; }
+    thead th.core { width: auto; }
+    td { padding: 8px 4px; font-size: 0.8rem; }
+    td:first-child { width: 18px; }
+    .name { overflow-wrap: anywhere; line-height: 1.15; }
+    .thp-full { display: none; }
+    .thp-short { display: inline; }
+    .seat-badge { padding: 2px 6px; font-size: 0.64rem; }
+    .seat-conf { font-size: 0.58rem; }
+    input.squad-edit { width: 60px; }
+  }
 </style>
 </head>
 <body>
@@ -151,6 +179,7 @@
 
   <div class="seat-note" id="seatNote"></div>
 
+  <div class="table-wrap">
   <table class="roster">
     <thead>
       <tr>
@@ -165,6 +194,7 @@
     </thead>
     <tbody id="tbody"></tbody>
   </table>
+  </div>
 
   <footer>&#9733; Core marks are shared &mdash; everyone with this link sees and edits the same set. TBC = THP not yet captured.</footer>
 
@@ -482,7 +512,7 @@
 
       const thpCell = m.thp == null
         ? '<td class="num tbc">TBC</td>'
-        : '<td class="num">' + fmt(m.thp) + '</td>';
+        : '<td class="num"><span class="thp-full">' + fmt(m.thp) + '</span><span class="thp-short">' + fmtM(m.thp) + '</span></td>';
       const on = core.has(m.name) ? 'on' : '';
       const safeName = m.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
       const squadCell = (m.squad1 == null)
@@ -505,8 +535,11 @@
       tbody.appendChild(tr);
     });
 
-    tbody.querySelectorAll('.star').forEach(s => {
-      s.addEventListener('click', () => {
+    // The whole Core cell is the tap target (bigger than the ★ glyph for touch).
+    tbody.querySelectorAll('td.core').forEach(cell => {
+      cell.addEventListener('click', () => {
+        const s = cell.querySelector('.star');
+        if (!s) return;
         const raw = s.getAttribute('data-name')
           .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
         toggleCore(raw);
