@@ -126,6 +126,7 @@
     <button data-sort="core">Core first</button>
     <button data-sort="name">Sort by Name</button>
     <button id="importBtn" title="Import stats from a screenshot">&#11014; Import</button>
+    <button id="exportBtn" title="Download roster (with seat estimates) as CSV for Google Sheets / Excel">&#11015; Export CSV</button>
     <button id="refreshBtn" title="Reload shared data">&#8635; Refresh</button>
   </div>
 
@@ -517,6 +518,57 @@
     });
   }
 
+  // ---- CSV export (for Google Sheets / Excel) -------------------------------
+  // One row per commander, ordered by THP (TBC last), with the computed seat
+  // columns alongside the raw stats so the spreadsheet has everything the page
+  // shows. THP and Squad 1 are exported as raw integers (lossless — divide by
+  // 1e6 in-sheet); Kills is in millions as stored.
+  function csvCell(v) {
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  function exportCSV() {
+    const sorted = [...roster].sort((a, b) => {
+      if (a.thp == null && b.thp == null) return (b.kills || 0) - (a.kills || 0);
+      if (a.thp == null) return 1;
+      if (b.thp == null) return -1;
+      return b.thp - a.thp;
+    });
+    const headers = ['Rank', 'Commander', 'Core', 'THP', 'Kills (M)', 'Squad 1',
+      'Seat colour', 'Role', 'Confidence', 'Squad/THP ratio', 'Squad 1 estimated', 'Flags', 'Explanation'];
+    const lines = sorted.map((m, i) => {
+      const e = seatOf(m);
+      return [
+        i + 1,
+        m.name,
+        core.has(m.name) ? 'Yes' : '',
+        m.thp == null ? '' : m.thp,
+        (Number(m.kills) || 0).toFixed(2),
+        m.squad1 == null ? '' : m.squad1,
+        e ? e.colour : '',
+        e ? e.role : '',
+        e ? e.confidence : '',
+        e && e.squadRatio != null ? e.squadRatio : '',
+        e ? (e.estimated ? 'Yes' : 'No') : '',
+        e ? e.flags.join('; ') : '',
+        e ? e.explanation : ''
+      ].map(csvCell).join(',');
+    });
+    const csv = headers.map(csvCell).join(',') + '\r\n' + lines.join('\r\n');
+    // Leading BOM so Sheets/Excel read it as UTF-8 (accented names: Gökturk, Tétell, ArêS).
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const stamp = new Date().toISOString().slice(0, 10);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'up7-roster-' + stamp + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    statusEl.textContent = 'Exported ' + sorted.length + ' members to ' + a.download + ' — import it in Google Sheets via File ▸ Import.';
+  }
+
   // ---- OCR import (Tesseract.js, in-browser) --------------------------------
   function loadImage(file) {
     return new Promise((res, rej) => {
@@ -728,6 +780,7 @@
     p.hidden = !p.hidden;
   });
   document.getElementById('ocrRun').addEventListener('click', runOCR);
+  document.getElementById('exportBtn').addEventListener('click', exportCSV);
 
   // Paste a screenshot straight in while the import panel is open.
   document.addEventListener('paste', e => {
