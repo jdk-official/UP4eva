@@ -83,6 +83,9 @@
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
   td.tbc { color: var(--tbc); font-style: italic; }
   td.core { text-align: center; }
+  td.squad1 { cursor: pointer; }
+  td.squad1:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+  input.squad-edit { width: 84px; text-align: right; background: #fff; color: var(--text-dark); border: 1px solid var(--accent); border-radius: 4px; padding: 4px; font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .name { font-weight: 700; }
   .star { cursor: pointer; font-size: 1.15rem; line-height: 1; user-select: none; opacity: 0.35; transition: opacity .1s, transform .1s; }
   .star.on { opacity: 1; }
@@ -99,11 +102,13 @@
     <div class="stat"><div class="label">Core</div><div class="val" id="coreCount">&mdash;</div></div>
     <div class="stat"><div class="label">Total THP</div><div class="val" id="totalThp">&mdash;</div></div>
     <div class="stat"><div class="label">Total Kills</div><div class="val" id="totalKills">&mdash;</div></div>
+    <div class="stat"><div class="label">Squad 1 logged</div><div class="val" id="squadLogged">&mdash;</div></div>
   </div>
 
   <div class="controls">
     <button data-sort="thp" class="active">Sort by THP</button>
     <button data-sort="kills">Sort by Kills</button>
+    <button data-sort="squad1">Sort by Squad 1</button>
     <button data-sort="core">Core first</button>
     <button data-sort="name">Sort by Name</button>
     <button id="importBtn" title="Import stats from a screenshot">&#11014; Import</button>
@@ -136,6 +141,7 @@
         <th>Commander</th>
         <th class="num">THP</th>
         <th class="num">Kills (M)</th>
+        <th class="num">Squad 1</th>
         <th class="core">Core</th>
       </tr>
     </thead>
@@ -265,6 +271,7 @@
   const tbody = document.getElementById('tbody');
   const statusEl = document.getElementById('status');
   const fmt = n => n.toLocaleString('en-US');
+  const fmtM = n => n >= 1e9 ? (n / 1e9).toFixed(2) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : (n / 1e3).toFixed(0) + 'K';
   const norm = s => (s || '').toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
   const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
@@ -337,12 +344,58 @@
     await saveState();
   }
 
+  // Parse a power entry like "52.8M", "650K", "52800000" into a number.
+  function parsePower(str) {
+    let s = String(str == null ? '' : str).trim().replace(/,/g, '').replace(/\s/g, '');
+    if (!s) return null;
+    const m = s.match(/^([\d.]+)([kmbKMB]?)$/);
+    if (!m) return null;
+    let n = parseFloat(m[1]);
+    if (isNaN(n)) return null;
+    const suf = m[2].toLowerCase();
+    if (suf === 'k') n *= 1e3; else if (suf === 'm') n *= 1e6; else if (suf === 'b') n *= 1e9;
+    return Math.round(n);
+  }
+
+  // Tap-to-edit a member's Squad 1 power; saves to the shared store.
+  function editSquad(cell) {
+    if (cell.querySelector('input')) return;
+    const name = cell.getAttribute('data-name')
+      .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+    const m = roster.find(x => x.name === name);
+    if (!m) return;
+    const cur = (m.squad1 == null) ? '' : fmtM(m.squad1);
+    cell.innerHTML = '<input class="squad-edit" inputmode="decimal" value="' + cur.replace(/"/g, '&quot;') + '" placeholder="e.g. 52.8M">';
+    const input = cell.querySelector('input');
+    input.focus();
+    input.select();
+    let done = false;
+    const commit = async (save) => {
+      if (done) return;
+      done = true;
+      if (save) {
+        m.squad1 = parsePower(input.value); // unparseable / empty clears it
+        updateStats();
+        render(currentSort);
+        await saveState();
+      } else {
+        render(currentSort);
+      }
+    };
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+    });
+    input.addEventListener('blur', () => commit(true));
+  }
+
   function updateStats() {
     document.getElementById('memberCount').textContent = roster.length;
     document.getElementById('coreCount').textContent = core.size;
     const withThp = roster.filter(m => m.thp != null);
     document.getElementById('totalThp').textContent = (withThp.reduce((s, m) => s + m.thp, 0) / 1e9).toFixed(2) + 'B';
     document.getElementById('totalKills').textContent = roster.reduce((s, m) => s + (Number(m.kills) || 0), 0).toFixed(1) + 'M';
+    document.getElementById('squadLogged').textContent = roster.filter(m => m.squad1 != null).length + '/' + roster.length;
   }
 
   function render(sortKey) {
@@ -350,6 +403,12 @@
     const sorted = [...roster].sort((a, b) => {
       if (sortKey === 'name') return a.name.localeCompare(b.name);
       if (sortKey === 'kills') return (b.kills || 0) - (a.kills || 0);
+      if (sortKey === 'squad1') {
+        if (a.squad1 == null && b.squad1 == null) return (b.thp || 0) - (a.thp || 0);
+        if (a.squad1 == null) return 1;
+        if (b.squad1 == null) return -1;
+        return b.squad1 - a.squad1;
+      }
       if (sortKey === 'core') {
         const ca = core.has(a.name) ? 1 : 0;
         const cb = core.has(b.name) ? 1 : 0;
@@ -376,11 +435,15 @@
         : '<td class="num">' + fmt(m.thp) + '</td>';
       const on = core.has(m.name) ? 'on' : '';
       const safeName = m.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+      const squadCell = (m.squad1 == null)
+        ? '<td class="num squad1 tbc" data-name="' + safeName + '" title="Tap to set Squad 1 power">TBC</td>'
+        : '<td class="num squad1" data-name="' + safeName + '" title="Tap to edit">' + fmtM(m.squad1) + '</td>';
       tr.innerHTML =
         '<td>' + (i + 1) + '</td>' +
         '<td class="name">' + safeName + '</td>' +
         thpCell +
         '<td class="num">' + (Number(m.kills) || 0).toFixed(2) + '</td>' +
+        squadCell +
         '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>';
       tbody.appendChild(tr);
     });
@@ -391,6 +454,10 @@
           .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
         toggleCore(raw);
       });
+    });
+
+    tbody.querySelectorAll('td.squad1').forEach(cell => {
+      cell.addEventListener('click', () => editSquad(cell));
     });
   }
 
