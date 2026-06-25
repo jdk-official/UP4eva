@@ -19,13 +19,22 @@ check('confidence', r.confidence, 'Borderline');
 check('flags', r.flags, ['Glass cannon build']);
 
 // ---- Extra coverage --------------------------------------------------------
-console.log('\n# THP-only (no Squad 1) => Low confidence');
-const t = estimateSeat(200, null);
-check('THP-only rawScore', t.rawScore, 200);
-check('THP-only adjustment', t.adjustment, 0);
-check('THP-only seat', t.seat, 'Blue / Pioneer');
-check('THP-only confidence', t.confidence, 'Low');
-check('THP-only flags', t.flags, []);
+console.log('\n# No Squad 1 => Squad 1 estimated at 30% of THP, confidence Low');
+const e1 = estimateSeat(135, null); // spec: est 40.5, raw 222.75, Blue/Pioneer
+check('estimated estimatedSquad1M', e1.estimatedSquad1M, 40.5);
+check('estimated rawScore', e1.rawScore, 222.75);
+check('estimated adjustment', e1.adjustment, 0);
+check('estimated adjustedScore', e1.adjustedScore, 222.75);
+check('estimated seat', e1.seat, 'Blue / Pioneer');
+check('estimated confidence', e1.confidence, 'Low');
+check('estimated flags', e1.flags, ['Squad 1 estimated from THP']);
+
+const e2 = estimateSeat(200, null); // est 60, raw 330 -> Gold/Elite
+check('estimated(200) estimatedSquad1M', e2.estimatedSquad1M, 60);
+check('estimated(200) rawScore', e2.rawScore, 330);
+check('estimated(200) seat', e2.seat, 'Gold / Elite');
+check('estimated(200) confidence', e2.confidence, 'Low');
+check('estimated(200) flags', e2.flags, ['Squad 1 estimated from THP']);
 
 console.log('\n# Balanced build, deep in Gold => High confidence, no flag');
 const g = estimateSeat(300, 80); // ratio .2667, raw 465, adj 465
