@@ -1,0 +1,604 @@
+{
+  "note": "Snapshot of the live UP7 alliance roster (JSONBin store) for transfer-seat calibration. thp and squad1 are RAW values (divide by 1e6 for millions). Refresh by re-running the snapshot step in scripts/model-transfer-seats usage notes.",
+  "generated": "2026-06-26",
+  "source": "JSONBin store 6a3d3011da38895dfefd77ce",
+  "count": 99,
+  "withThp": 76,
+  "withSquad1": 7,
+  "players": [
+    {
+      "name": "MML",
+      "thp": 175778224,
+      "squad1": 63100000,
+      "core": true
+    },
+    {
+      "name": "Papa Pagh",
+      "thp": 163478447,
+      "squad1": null,
+      "core": true
+    },
+    {
+      "name": "Big D",
+      "thp": 157474216,
+      "squad1": 56800000,
+      "core": true
+    },
+    {
+      "name": "JDKOfficial",
+      "thp": 145501933,
+      "squad1": 55900000,
+      "core": true
+    },
+    {
+      "name": "Bearror404",
+      "thp": 145158072,
+      "squad1": 52400000,
+      "core": true
+    },
+    {
+      "name": "Lionstray",
+      "thp": 142743838,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "SNC2N Shaun",
+      "thp": 142008953,
+      "squad1": 52800000,
+      "core": true
+    },
+    {
+      "name": "Husk In Love",
+      "thp": 138654217,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "PHOENIX WICK",
+      "thp": 138192873,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "naazgul",
+      "thp": 137777048,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "SaEed15",
+      "thp": 137216116,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Eddie James II",
+      "thp": 136761704,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "AxRO10",
+      "thp": 134539188,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Pawel124",
+      "thp": 132166434,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Joker Pjoter",
+      "thp": 131896578,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "LanaBananaa",
+      "thp": 130660171,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Eternal Junbas",
+      "thp": 129340833,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Gun JRP",
+      "thp": 127361023,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "flatliner111",
+      "thp": 125635529,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Calamity Arte",
+      "thp": 125310575,
+      "squad1": 44600000,
+      "core": true
+    },
+    {
+      "name": "7GRUT",
+      "thp": 125023577,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Don P Don",
+      "thp": 123288925,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Nurkian",
+      "thp": 122795889,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Karolina212",
+      "thp": 121667379,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Mr Fuma",
+      "thp": 121467309,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Gökturk",
+      "thp": 120952097,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "miniaturist",
+      "thp": 118971640,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "royaluus",
+      "thp": 118663973,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Gökhan190303",
+      "thp": 118282214,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Hossss1234",
+      "thp": 116884309,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Aluxie",
+      "thp": 116842266,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "MVDiesel",
+      "thp": 116363883,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "papy56",
+      "thp": 116119445,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Abu Ameer1002",
+      "thp": 115852309,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Mitchffm",
+      "thp": 115570856,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Biggunsbigarmy",
+      "thp": 115244106,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Choops29",
+      "thp": 115023790,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Hoodedx",
+      "thp": 114776944,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "G K R",
+      "thp": 114165216,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "boss girli",
+      "thp": 114045578,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "UP4 baby",
+      "thp": 113587347,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Sipppppppppppppppu",
+      "thp": 112849384,
+      "squad1": 42900000,
+      "core": false
+    },
+    {
+      "name": "Tétell",
+      "thp": 112844907,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "titizz",
+      "thp": 112615799,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "BOTTOR",
+      "thp": 112385542,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "abo Najm",
+      "thp": 112281208,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Laz k",
+      "thp": 111657511,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "soldjahone",
+      "thp": 111069654,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Rammer84",
+      "thp": 110254924,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "choyrein",
+      "thp": 110169596,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Noubs",
+      "thp": 107817039,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "mamadec",
+      "thp": 107678828,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Peeps21",
+      "thp": 107647512,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "proprooro",
+      "thp": 107064643,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "f33ly",
+      "thp": 106989988,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Nick Knatterton",
+      "thp": 106159496,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Paco1965",
+      "thp": 105698904,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "BartFarst",
+      "thp": 105481575,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "3XiLED",
+      "thp": 105170246,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Tor of the thunder",
+      "thp": 104620482,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "spilerr",
+      "thp": 104302648,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Anneq",
+      "thp": 101865367,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Spawny9",
+      "thp": 101762783,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Dr No 23",
+      "thp": 101453996,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "aDram",
+      "thp": 101418750,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Karrol",
+      "thp": 101326054,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Anatolii0123",
+      "thp": 101140887,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Muv99",
+      "thp": 101102383,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Roychuk",
+      "thp": 98249827,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "fa7maa",
+      "thp": 96970603,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "SNOOPY Gotti",
+      "thp": 96603165,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Maalina",
+      "thp": 96597348,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "JAcA",
+      "thp": 95348799,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "water Boy",
+      "thp": 94643152,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Steve 80",
+      "thp": 94404909,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "MaXImuS",
+      "thp": 93723345,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Alinéacode126",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Pr1me M1n1ster",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Lerolli",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Lexa35",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Manuval",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Зулхар",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Davf 1 3",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "seniori",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "DJ Gerry",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Taylor Troops",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "ArêS",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Ottel",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Andrea83x",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "JustCallMeJim",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Zassaaaa",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "JosephMarie",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Paola08",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Griki",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Satnav44",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "HAiLEY",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "zlaja75",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "MFALCKB",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    },
+    {
+      "name": "Hanuma123",
+      "thp": null,
+      "squad1": null,
+      "core": false
+    }
+  ]
+}
