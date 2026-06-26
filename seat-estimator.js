@@ -24,12 +24,12 @@
   // Seat bands keyed on the adjusted score: min <= score < max.
   var SEAT_BANDS = [
     { colour: 'White',  role: 'Follower',    min: -Infinity, max: 170 },
-    { colour: 'Blue',   role: 'Pioneer',     min: 170,       max: 245 },
-    { colour: 'Purple', role: 'Contributor', min: 245,       max: 330 },
-    { colour: 'Gold',   role: 'Elite',       min: 330,       max: Infinity }
+    { colour: 'Blue',   role: 'Pioneer',     min: 170,       max: 185 },
+    { colour: 'Purple', role: 'Contributor', min: 185,       max: 210 },
+    { colour: 'Gold',   role: 'Elite',       min: 210,       max: Infinity }
   ];
 
-  var BOUNDARIES = [170, 245, 330];
+  var BOUNDARIES = [170, 185, 210];
 
   function estimateSeat(thpM, squad1M) {
     if (thpM == null || !isFinite(thpM)) {
@@ -44,16 +44,17 @@
     var flags = [];
     var estimated = !hasSquad;
 
-    // Score formula. THP now carries most of the weight; Squad 1 stays
-    // important but is no longer over-weighted (the old 3× factor over-promoted
-    // squad-heavy accounts). When Squad 1 is missing, fall back to a THP-only
-    // estimate (1.75 × THP) and keep confidence Low.
+    // Score formula. Calibrated for Server 1115 (the previous transfer had only
+    // ~8 Blue seats, so the bar is high and most of the alliance lands White).
+    // THP carries most of the weight; Squad 1 matters but is not over-weighted.
+    // When Squad 1 is missing, fall back to a THP-only estimate (1.25 × THP)
+    // and keep confidence Low.
     var rawScore;
     var squadRatio = null;
     var adjustment = 0;
     var balanceFlag = null;
     if (hasSquad) {
-      rawScore = (0.85 * thpM) + (2.3 * squad1M);
+      rawScore = (0.75 * thpM) + (1.6 * squad1M);
 
       // Balance adjustment based on the Squad 1 / THP ratio.
       if (thpM > 0) {
@@ -65,7 +66,7 @@
         if (balanceFlag) flags.push(balanceFlag);
       }
     } else {
-      rawScore = 1.75 * thpM;
+      rawScore = 1.25 * thpM;
       flags.push('Estimated from THP (no Squad 1)');
     }
 
@@ -93,7 +94,7 @@
     // Human-readable explanation
     var r2 = function (x) { return Math.round(x * 100) / 100; };
     var base = estimated
-      ? 'THP ' + r2(thpM) + 'M, no Squad 1 → THP-only estimate (1.75 × THP)'
+      ? 'THP ' + r2(thpM) + 'M, no Squad 1 → THP-only estimate (1.25 × THP)'
       : 'THP ' + r2(thpM) + 'M + Squad 1 ' + r2(squad1M) + 'M';
     var explanation = base + ' → raw ' + r2(rawScore);
     if (adjustment !== 0) explanation += ', ' + balanceFlag + ' ' + adjustment + ' (squad/THP ' + squadRatio + ')';
