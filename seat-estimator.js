@@ -1,8 +1,14 @@
 /*
- * Last War: Survival — Server 1115 end-of-Season-5 transfer seat estimator.
+ * Last War: Survival — Server 1115 end-of-Season-5 Transfer Surge seat estimator.
  *
- * UNOFFICIAL community estimator. Actual seat colour may vary when the event
- * opens because transfer scores and thresholds are dynamic.
+ * UNOFFICIAL community estimator. In game, the real seat tier —
+ *   Follower = White, Pioneer = Blue, Contributor = Purple, Elite = Gold —
+ * is set by a commander's "Individual Score": peak power across the top 15
+ * heroes, top 3 squads, buildings, tech, the Drone and the Overlord, measured
+ * against thresholds that are dynamic and undisclosed. We can only see THP and
+ * Squad 1, so this is a PROXY, calibrated against the UP7 roster so the
+ * alliance's strongest commander (MML) lands at the top of Blue, pushing the
+ * Purple line.
  *
  * Works in the browser (attaches window.SeatEstimator) and in Node
  * (module.exports), so the website and the unit test share one source of truth.
@@ -10,6 +16,10 @@
  * Inputs are in MILLIONS:
  *   thpM    — Total Hero Power, in millions (required)
  *   squad1M — Squad 1 power, in millions (optional)
+ *
+ * Score (THP-millions scale):
+ *   with Squad 1:  score = THP + 0.25 * Squad1
+ *   no Squad 1:    score = 1.06 * THP    (small uplift only; confidence Low)
  */
 (function (root, factory) {
   var api = factory();
@@ -18,24 +28,30 @@
 })(typeof self !== 'undefined' ? self : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
   'use strict';
 
-  var DISCLAIMER = 'Unofficial community estimator for Server 1115 end-of-Season-5 transfer. ' +
-    'Actual seat colour may vary when the event opens because transfer scores and thresholds are dynamic.';
+  var DISCLAIMER = 'Unofficial estimator. Calibrated for Server 1115 end-of-Season-5 using alliance roster assumptions. ' +
+    'Actual transfer seat may vary when the event opens.';
 
-  // Seat bands keyed on the adjusted score: min <= score < max.
+  // Seat bands keyed on the score: min <= score < max. Calibrated to the live
+  // roster (see scripts/model-transfer-seats.js) so MML tops Blue at ~191.5,
+  // 3.5 below the Purple line.
   var SEAT_BANDS = [
-    { colour: 'White',  role: 'Follower',    min: -Infinity, max: 170 },
-    { colour: 'Blue',   role: 'Pioneer',     min: 170,       max: 185 },
-    { colour: 'Purple', role: 'Contributor', min: 185,       max: 210 },
+    { colour: 'White',  role: 'Follower',    min: -Infinity, max: 146.7 },
+    { colour: 'Blue',   role: 'Pioneer',     min: 146.7,     max: 195 },
+    { colour: 'Purple', role: 'Contributor', min: 195,       max: 210 },
     { colour: 'Gold',   role: 'Elite',       min: 210,       max: Infinity }
   ];
 
-  var BOUNDARIES = [170, 185, 210];
+  var BOUNDARIES = [146.7, 195, 210];
+
+  // Score weights (THP-millions scale).
+  var SQUAD1_WEIGHT = 0.25;   // weight on each point of Squad 1 power
+  var MISSING_UPLIFT = 1.06;  // THP-only uplift when Squad 1 is unknown
 
   function estimateSeat(thpM, squad1M) {
     if (thpM == null || !isFinite(thpM)) {
       return {
         rawScore: null, adjustedScore: null, seat: null, colour: null, role: null,
-        confidence: null, squadRatio: null, adjustment: 0, flags: [],
+        confidence: null, squadRatio: null, adjustment: 0, flags: [], estimated: false,
         explanation: 'No THP recorded — cannot estimate a seat.'
       };
     }
@@ -44,42 +60,30 @@
     var flags = [];
     var estimated = !hasSquad;
 
-    // Score formula. Calibrated for Server 1115 (the previous transfer had only
-    // ~8 Blue seats, so the bar is high and most of the alliance lands White).
-    // THP carries most of the weight; Squad 1 matters but is not over-weighted.
-    // When Squad 1 is missing, fall back to a THP-only estimate (1.25 × THP)
-    // and keep confidence Low.
+    // Score. THP carries the weight; Squad 1 nudges it. When Squad 1 is missing
+    // we apply only a small THP uplift and keep confidence Low.
     var rawScore;
-    var squadRatio = null;
-    var adjustment = 0;
-    var balanceFlag = null;
     if (hasSquad) {
-      rawScore = (0.75 * thpM) + (1.6 * squad1M);
-
-      // Balance adjustment based on the Squad 1 / THP ratio.
-      if (thpM > 0) {
-        var ratio = squad1M / thpM;
-        squadRatio = Math.round(ratio * 10000) / 10000;
-        if (ratio >= 0.40) { balanceFlag = 'Glass cannon build'; adjustment = -15; }
-        else if (ratio >= 0.35) { balanceFlag = 'Squad-heavy build'; adjustment = -10; }
-        else if (ratio <= 0.22) { balanceFlag = 'Broad but underpowered main squad'; adjustment = -10; }
-        if (balanceFlag) flags.push(balanceFlag);
-      }
+      rawScore = thpM + SQUAD1_WEIGHT * squad1M;
     } else {
-      rawScore = 1.25 * thpM;
+      rawScore = MISSING_UPLIFT * thpM;
       flags.push('Estimated from THP (no Squad 1)');
     }
-
-    // Round away binary-float dust so scores compare/display cleanly.
     rawScore = Math.round(rawScore * 100) / 100;
-    var adjustedScore = Math.round((rawScore + adjustment) * 100) / 100;
+
+    // Squad/THP ratio is kept for information only — at this weighting Squad 1
+    // barely moves the score, so there's no build-balance penalty.
+    var squadRatio = (hasSquad && thpM > 0) ? Math.round((squad1M / thpM) * 10000) / 10000 : null;
+    var adjustment = 0;
+    var adjustedScore = rawScore;
 
     // Seat band
     var band = SEAT_BANDS.find(function (b) { return adjustedScore >= b.min && adjustedScore < b.max; });
     if (!band) band = SEAT_BANDS[SEAT_BANDS.length - 1];
     var seat = band.colour + ' / ' + band.role;
 
-    // Confidence — Low whenever the score is a THP-only estimate (no Squad 1).
+    // Confidence — Low whenever the score is a THP-only estimate (no Squad 1);
+    // otherwise by distance to the nearest band boundary.
     var confidence;
     if (estimated) {
       confidence = 'Low';
@@ -88,17 +92,14 @@
       if (distance < 10) confidence = 'Borderline';
       else if (distance < 25) confidence = 'Medium';
       else confidence = 'High';
-      if (balanceFlag === 'Glass cannon build' && confidence === 'High') confidence = 'Medium';
     }
 
     // Human-readable explanation
     var r2 = function (x) { return Math.round(x * 100) / 100; };
     var base = estimated
-      ? 'THP ' + r2(thpM) + 'M, no Squad 1 → THP-only estimate (1.25 × THP)'
-      : 'THP ' + r2(thpM) + 'M + Squad 1 ' + r2(squad1M) + 'M';
-    var explanation = base + ' → raw ' + r2(rawScore);
-    if (adjustment !== 0) explanation += ', ' + balanceFlag + ' ' + adjustment + ' (squad/THP ' + squadRatio + ')';
-    explanation += ' → adjusted ' + r2(adjustedScore) + ' = ' + seat + ' · ' + confidence + ' confidence';
+      ? 'THP ' + r2(thpM) + 'M, no Squad 1 → THP-only estimate (' + MISSING_UPLIFT + ' × THP)'
+      : 'THP ' + r2(thpM) + 'M + ' + SQUAD1_WEIGHT + ' × Squad 1 ' + r2(squad1M) + 'M';
+    var explanation = base + ' → score ' + r2(adjustedScore) + ' = ' + seat + ' · ' + confidence + ' confidence';
 
     return {
       rawScore: rawScore,

@@ -1,4 +1,4 @@
-const { estimateSeat } = require('./seat-estimator.js');
+const { estimateSeat, SEAT_BANDS } = require('./seat-estimator.js');
 
 let pass = 0, fail = 0;
 function check(label, got, exp) {
@@ -7,79 +7,81 @@ function check(label, got, exp) {
   ok ? pass++ : fail++;
 }
 
-// Server 1115 calibration (downward, fitted to the live roster):
-//   score = 0.75*THP + 1.6*Squad1  (with squad);  1.25*THP  (none)
-//   adjustments: ratio>=0.40 -> -15, >=0.35 -> -10, <=0.22 -> -10
-//   bands: <170 White, 170-184 Blue, 185-209 Purple, 210+ Gold
-//   confidence boundaries: [170, 185, 210]
+// Production calibration ("Model E"): score on the THP-millions scale,
+//   with Squad 1:  score = THP + 0.25 * Squad1
+//   no Squad 1:    score = 1.06 * THP   (confidence Low)
+// Bands: White <146.7, Blue 146.7-194.99, Purple 195-209.99, Gold >=210.
+// No build-balance penalty (adjustment always 0).
 
-// ---- One clean case per band (no adjustment) ------------------------------
+// ---- One clean case per band (with Squad 1) -------------------------------
 console.log('# One case per band');
-const white = estimateSeat(120, 30);   // raw 138, ratio .25
-check('White rawScore', white.rawScore, 138);
+const white = estimateSeat(120, 40);   // 120 + 10 = 130
+check('White score', white.rawScore, 130);
 check('White seat', white.seat, 'White / Follower');
+check('White adjustment', white.adjustment, 0);
 check('White flags', white.flags, []);
-check('White confidence', white.confidence, 'High');     // 32 from 170
 
-const blue = estimateSeat(150, 40);    // raw 176.5, ratio .2667
-check('Blue rawScore', blue.rawScore, 176.5);
+const blue = estimateSeat(160, 60);    // 160 + 15 = 175
+check('Blue score', blue.rawScore, 175);
 check('Blue seat', blue.seat, 'Blue / Pioneer');
-check('Blue confidence', blue.confidence, 'Borderline'); // 6.5 from 170
+check('Blue confidence', blue.confidence, 'Medium');   // 20 from 195
 
-const purple = estimateSeat(170, 45);  // raw 199.5, ratio .2647
-check('Purple rawScore', purple.rawScore, 199.5);
+const purple = estimateSeat(196, 36);  // 196 + 9 = 205
+check('Purple score', purple.rawScore, 205);
 check('Purple seat', purple.seat, 'Purple / Contributor');
-check('Purple confidence', purple.confidence, 'Medium'); // 10.5 from 210
 
-const gold = estimateSeat(200, 60);    // raw 246, ratio .30
-check('Gold rawScore', gold.rawScore, 246);
+const gold = estimateSeat(220, 60);    // 220 + 15 = 235
+check('Gold score', gold.rawScore, 235);
 check('Gold seat', gold.seat, 'Gold / Elite');
-check('Gold flags', gold.flags, []);
-check('Gold confidence', gold.confidence, 'High');       // 36 from 210
+check('Gold confidence', gold.confidence, 'High');     // 25 from 210
 
-// ---- No Squad 1 => THP-only estimate (1.25 * THP), confidence Low ----------
-console.log('\n# No Squad 1 => 1.25 * THP, confidence Low');
-const e1 = estimateSeat(130, null);
-check('estimated rawScore', e1.rawScore, 162.5);         // 1.25*130
-check('estimated squadRatio', e1.squadRatio, null);
-check('estimated seat', e1.seat, 'White / Follower');
+// ---- MML anchor: top-end Blue pushing the Purple line ----------------------
+console.log('\n# MML anchor (top-end Blue, pushing Purple)');
+const mml = estimateSeat(175.778224, 63.1); // 175.78 + 15.775 = 191.55
+check('MML score', mml.rawScore, 191.55);
+check('MML seat', mml.seat, 'Blue / Pioneer');
+check('MML confidence', mml.confidence, 'Borderline'); // 3.45 below Purple@195
+check('MML squadRatio (informational)', mml.squadRatio, 0.359);
+check('MML adjustment (no penalty)', mml.adjustment, 0);
+
+// ---- No Squad 1 => small uplift, confidence Low, NOT inflated --------------
+console.log('\n# Missing Squad 1 => 1.06 * THP, Low, not inflated');
+const e1 = estimateSeat(150, null);
+check('estimated score', e1.rawScore, 159);            // 1.06*150
+check('estimated seat', e1.seat, 'Blue / Pioneer');
 check('estimated confidence', e1.confidence, 'Low');
+check('estimated squadRatio', e1.squadRatio, null);
 check('estimated flags', e1.flags, ['Estimated from THP (no Squad 1)']);
-check('estimated(140) seat', estimateSeat(140, null).seat, 'Blue / Pioneer');   // 175
-check('estimated(180) seat', estimateSeat(180, null).seat, 'Gold / Elite');     // 225
+// Highest THP in the roster (175.8) on a THP-only estimate must NOT reach Purple.
+const topThpOnly = estimateSeat(175.78, null);          // 1.06*175.78 = 186.33
+check('top THP-only score', topThpOnly.rawScore, 186.33);
+check('top THP-only seat (still Blue, not inflated)', topThpOnly.seat, 'Blue / Pioneer');
 
-// ---- Glass cannon (>=0.40) -15 --------------------------------------------
-console.log('\n# Glass cannon (ratio >= 0.40) -> -15');
-const gc1 = estimateSeat(135, 56);     // raw 190.85, ratio .4148 -15 -> 175.85
-check('glasscannon rawScore', gc1.rawScore, 190.85);
-check('glasscannon squadRatio', gc1.squadRatio, 0.4148);
-check('glasscannon adjustment', gc1.adjustment, -15);
-check('glasscannon adjustedScore', gc1.adjustedScore, 175.85);
-check('glasscannon seat', gc1.seat, 'Blue / Pioneer');
-check('glasscannon flags', gc1.flags, ['Glass cannon build']);
-check('glasscannon confidence', gc1.confidence, 'Borderline'); // 5.85 from 170
+// ---- No build-balance penalty (glass-cannon no longer demoted) ------------
+console.log('\n# Build balance is informational only (no penalty)');
+const gc = estimateSeat(150, 70);      // ratio 0.4667 — would have been penalised before
+check('glasscannon score', gc.rawScore, 167.5);        // 150 + 17.5, no deduction
+check('glasscannon adjustment', gc.adjustment, 0);
+check('glasscannon flags', gc.flags, []);
+check('glasscannon seat', gc.seat, 'Blue / Pioneer');
 
-const gc2 = estimateSeat(160, 90);     // raw 264, ratio .5625 -15 -> 249
-check('glasscannon(High->Med) adjustedScore', gc2.adjustedScore, 249);
-check('glasscannon(High->Med) seat', gc2.seat, 'Gold / Elite');
-check('glasscannon(High->Med) confidence', gc2.confidence, 'Medium'); // 39 from 210 (High) -> Medium
-
-// ---- Squad-heavy (0.35–0.40) -10 and underpowered (<=0.22) -10 -------------
-console.log('\n# Squad-heavy and underpowered');
-const sh = estimateSeat(200, 74);      // ratio .37 -> squad-heavy -10
-check('squad-heavy rawScore', sh.rawScore, 268.4);
-check('squad-heavy adjustment', sh.adjustment, -10);
-check('squad-heavy adjustedScore', sh.adjustedScore, 258.4);
-check('squad-heavy seat', sh.seat, 'Gold / Elite');
-check('squad-heavy flags', sh.flags, ['Squad-heavy build']);
-
-const up = estimateSeat(200, 40);      // ratio .20 -> underpowered -10
-check('underpowered rawScore', up.rawScore, 214);
-check('underpowered adjustment', up.adjustment, -10);
-check('underpowered adjustedScore', up.adjustedScore, 204);
-check('underpowered seat', up.seat, 'Purple / Contributor');
-check('underpowered flags', up.flags, ['Broad but underpowered main squad']);
-check('underpowered confidence', up.confidence, 'Borderline'); // 6 from 210
+// ---- Distribution on the live roster snapshot (calibration check) ----------
+console.log('\n# Live roster snapshot distribution');
+const snapshot = require('./scripts/roster-data.json');
+const seatOf = p => p.thp == null ? null : estimateSeat(p.thp / 1e6, p.squad1 == null ? null : p.squad1 / 1e6);
+const counts = { Gold: 0, Purple: 0, Blue: 0, White: 0 };
+let rated = 0;
+snapshot.players.forEach(p => {
+  const e = seatOf(p);
+  if (!e || !e.colour) return;
+  rated++; counts[e.colour]++;
+});
+check('rated players', rated, 76);
+check('snapshot distribution', counts, { Gold: 0, Purple: 0, Blue: 8, White: 68 });
+check('majority White', counts.White > rated / 2, true);
+check('Blue count (target ~8)', counts.Blue, 8);
+const mmlRow = snapshot.players.find(p => p.name === 'MML');
+check('MML in snapshot is Blue/Pioneer', seatOf(mmlRow).seat, 'Blue / Pioneer');
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
