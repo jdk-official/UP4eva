@@ -84,9 +84,20 @@
   td.tbc { color: var(--tbc); font-style: italic; }
   .thp-short { display: none; } /* abbreviated THP (e.g. 175.8M) — shown only on narrow screens */
   td.core { text-align: center; cursor: pointer; }
-  td.squad1 { cursor: pointer; }
-  td.squad1:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
-  input.squad-edit { width: 84px; text-align: right; background: #fff; color: var(--text-dark); border: 1px solid var(--accent); border-radius: 4px; padding: 4px; font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  td.editable { cursor: pointer; }
+  td.editable:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+  input.cell-edit { width: 84px; text-align: right; background: #fff; color: var(--text-dark); border: 1px solid var(--accent); border-radius: 4px; padding: 4px; font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  input.note-edit { width: 170px; max-width: 100%; background: #fff; color: var(--text-dark); border: 1px solid var(--accent); border-radius: 4px; padding: 4px; font-size: 0.82rem; }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .search-box { flex: 1; min-width: 150px; background: var(--panel); color: #fff; border: 1px solid #3d506b; border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; }
+  .search-box::placeholder { color: #7e90a6; }
+  .toolbar .toggle { background: var(--panel); color: #cdd9e8; border: 1px solid #3d506b; padding: 8px 12px; border-radius: 8px; font-size: 0.82rem; cursor: pointer; font-weight: 600; }
+  .toolbar .toggle.active { background: var(--core); color: #3a2c08; border-color: var(--core); }
+  .result-count { color: #7e90a6; font-size: 0.78rem; margin-left: auto; }
+  td.name .note-flag { font-size: 0.8rem; cursor: pointer; }
+  td.name .note-btn { cursor: pointer; opacity: 0.3; font-size: 0.85rem; user-select: none; }
+  td.name .note-btn:hover { opacity: 0.85; }
+  td.name .upd { font-size: 0.62rem; color: #7e90a6; font-weight: 600; margin-top: 2px; }
   td.seat { text-align: center; white-space: nowrap; }
   thead th.seat { text-align: center; }
   .seat-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; }
@@ -129,7 +140,9 @@
     .thp-short { display: inline; }
     .seat-badge { padding: 2px 6px; font-size: 0.64rem; }
     .seat-conf { font-size: 0.58rem; }
-    input.squad-edit { width: 60px; }
+    input.cell-edit { width: 56px; }
+    input.note-edit { width: 120px; }
+    .toolbar .toggle { padding: 7px 9px; font-size: 0.76rem; }
   }
 </style>
 </head>
@@ -178,6 +191,12 @@
   <div class="status" id="status">Loading shared data&hellip;</div>
 
   <div class="seat-note" id="seatNote"></div>
+
+  <div class="toolbar">
+    <input type="search" id="search" class="search-box" placeholder="&#128269; Search commander&hellip;" autocomplete="off">
+    <button id="coreOnlyBtn" class="toggle" title="Show core members only">&#9733; Core only</button>
+    <span class="result-count" id="resultCount"></span>
+  </div>
 
   <div class="table-wrap">
   <table class="roster">
@@ -323,10 +342,23 @@
   const fmtM = n => n >= 1e9 ? (n / 1e9).toFixed(2) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : (n / 1e3).toFixed(0) + 'K';
   const norm = s => (s || '').toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
   const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const decode = s => (s || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+  const relTime = ts => {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60); if (m < 60) return m + 'm ago';
+    const h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+    const d = Math.floor(h / 24); if (d < 7) return d + 'd ago';
+    const w = Math.floor(d / 7); if (w < 5) return w + 'w ago';
+    const mo = Math.floor(d / 30); if (mo < 12) return mo + 'mo ago';
+    return Math.floor(d / 365) + 'y ago';
+  };
 
   let roster = SEED.map(m => ({ ...m }));
   let core = new Set();
   let currentSort = 'thp';
+  let searchTerm = '';
+  let coreOnly = false;
 
   function cacheLocal() {
     try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ core: [...core], roster })); } catch (e) {}
@@ -406,15 +438,15 @@
     return Math.round(n);
   }
 
-  // Tap-to-edit a member's Squad 1 power; saves to the shared store.
-  function editSquad(cell) {
+  // Tap-to-edit a numeric field (thp or squad1); saves to the shared store and
+  // stamps the member's last-updated time.
+  function editField(cell, field) {
     if (cell.querySelector('input')) return;
-    const name = cell.getAttribute('data-name')
-      .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
-    const m = roster.find(x => x.name === name);
+    const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
     if (!m) return;
-    const cur = (m.squad1 == null) ? '' : fmtM(m.squad1);
-    cell.innerHTML = '<input class="squad-edit" inputmode="decimal" value="' + cur.replace(/"/g, '&quot;') + '" placeholder="e.g. 52.8M">';
+    const cur = m[field] == null ? '' : (field === 'thp' ? String(m[field]) : fmtM(m[field]));
+    const ph = field === 'thp' ? 'e.g. 175.8M or 175800000' : 'e.g. 52.8M';
+    cell.innerHTML = '<input class="cell-edit" inputmode="decimal" value="' + escAttr(cur) + '" placeholder="' + ph + '">';
     const input = cell.querySelector('input');
     input.focus();
     input.select();
@@ -423,8 +455,39 @@
       if (done) return;
       done = true;
       if (save) {
-        m.squad1 = parsePower(input.value); // unparseable / empty clears it
+        m[field] = parsePower(input.value); // unparseable / empty clears it
+        m.updated = Date.now();
         updateStats();
+        render(currentSort);
+        await saveState();
+      } else {
+        render(currentSort);
+      }
+    };
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+    });
+    input.addEventListener('blur', () => commit(true));
+  }
+
+  // Tap-to-edit a member's free-text note.
+  function editNote(cell, name) {
+    if (cell.querySelector('input')) return;
+    const m = roster.find(x => x.name === name);
+    if (!m) return;
+    cell.innerHTML = '<input class="note-edit" value="' + escAttr(m.notes || '') + '" placeholder="note…" maxlength="140">';
+    const input = cell.querySelector('input');
+    input.focus();
+    input.select();
+    let done = false;
+    const commit = async (save) => {
+      if (done) return;
+      done = true;
+      if (save) {
+        const v = input.value.trim();
+        if (v) m.notes = v; else delete m.notes;
+        m.updated = Date.now();
         render(currentSort);
         await saveState();
       } else {
@@ -500,33 +563,46 @@
       return b.thp - a.thp;
     });
 
+    // Filter (search by name + optional core-only) without losing true rank.
+    const q = searchTerm.trim().toLowerCase();
+    const visible = sorted.filter(m =>
+      (!q || m.name.toLowerCase().includes(q)) &&
+      (!coreOnly || core.has(m.name)));
+    const rc = document.getElementById('resultCount');
+    if (rc) rc.textContent = (q || coreOnly) ? (visible.length + ' of ' + roster.length + ' shown') : '';
+
     tbody.innerHTML = '';
-    sorted.forEach((m, i) => {
+    visible.forEach((m) => {
+      const rank = sorted.indexOf(m); // 0-based rank in the full sort
       const tr = document.createElement('tr');
       const classes = [];
-      if (sortKey === 'thp' && i === 0) classes.push('rank1');
-      else if (sortKey === 'thp' && i === 1) classes.push('rank2');
-      else if (sortKey === 'thp' && i === 2) classes.push('rank3');
+      if (sortKey === 'thp' && rank === 0) classes.push('rank1');
+      else if (sortKey === 'thp' && rank === 1) classes.push('rank2');
+      else if (sortKey === 'thp' && rank === 2) classes.push('rank3');
       if (core.has(m.name)) classes.push('is-core');
       tr.className = classes.join(' ');
 
-      const thpCell = m.thp == null
-        ? '<td class="num tbc">TBC</td>'
-        : '<td class="num"><span class="thp-full">' + fmt(m.thp) + '</span><span class="thp-short">' + fmtM(m.thp) + '</span></td>';
-      const on = core.has(m.name) ? 'on' : '';
       const safeName = m.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-      const squadCell = (m.squad1 == null)
-        ? '<td class="num squad1 tbc" data-name="' + safeName + '" title="Tap to set Squad 1 power">TBC</td>'
-        : '<td class="num squad1" data-name="' + safeName + '" title="Tap to edit">' + fmtM(m.squad1) + '</td>';
+      const thpInner = m.thp == null ? 'TBC'
+        : '<span class="thp-full">' + fmt(m.thp) + '</span><span class="thp-short">' + fmtM(m.thp) + '</span>';
+      const thpCell = '<td class="num editable thp' + (m.thp == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="thp" title="Tap to edit THP">' + thpInner + '</td>';
+      const squadCell = '<td class="num editable squad1' + (m.squad1 == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="squad1" title="Tap to edit Squad 1">' + (m.squad1 == null ? 'TBC' : fmtM(m.squad1)) + '</td>';
       const est = seatOf(m);
       const seatCell = est
         ? '<td class="seat" title="' + escAttr(est.explanation + (est.flags.length ? ' · Flags: ' + est.flags.join(', ') : '')) + '">' +
             '<span class="seat-badge seat-' + est.colour + '">' + est.role + '</span>' +
             '<div class="seat-conf">' + est.confidence + '</div></td>'
         : '<td class="seat tbc">&mdash;</td>';
+      const on = core.has(m.name) ? 'on' : '';
+      const nameCell = '<td class="name" data-name="' + safeName + '">' +
+        '<span class="cmd">' + safeName + '</span>' +
+        (m.notes ? ' <span class="note-flag" title="' + escAttr(m.notes) + '">📝</span>' : '') +
+        ' <span class="note-btn" title="Add / edit note">✎</span>' +
+        (m.updated ? '<div class="upd" title="Last updated ' + escAttr(new Date(m.updated).toLocaleString()) + '">upd ' + relTime(m.updated) + '</div>' : '') +
+        '</td>';
       tr.innerHTML =
-        '<td>' + (i + 1) + '</td>' +
-        '<td class="name">' + safeName + '</td>' +
+        '<td>' + (rank + 1) + '</td>' +
+        nameCell +
         thpCell +
         '<td class="num">' + (Number(m.kills) || 0).toFixed(2) + '</td>' +
         squadCell +
@@ -535,19 +611,31 @@
       tbody.appendChild(tr);
     });
 
+    if (!visible.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
+    }
+
     // The whole Core cell is the tap target (bigger than the ★ glyph for touch).
     tbody.querySelectorAll('td.core').forEach(cell => {
       cell.addEventListener('click', () => {
         const s = cell.querySelector('.star');
         if (!s) return;
-        const raw = s.getAttribute('data-name')
-          .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
-        toggleCore(raw);
+        toggleCore(decode(s.getAttribute('data-name')));
       });
     });
 
-    tbody.querySelectorAll('td.squad1').forEach(cell => {
-      cell.addEventListener('click', () => editSquad(cell));
+    // Tap-to-edit THP / Squad 1.
+    tbody.querySelectorAll('td.editable').forEach(cell => {
+      cell.addEventListener('click', () => editField(cell, cell.getAttribute('data-field')));
+    });
+
+    // Note editor (pencil or existing-note flag).
+    tbody.querySelectorAll('.note-btn, .note-flag').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cell = el.closest('td.name');
+        editNote(cell, decode(cell.getAttribute('data-name')));
+      });
     });
   }
 
@@ -749,6 +837,7 @@
       else updated++;
       if (type === 'thp') m.thp = val;
       else m.kills = val / 1e6;
+      m.updated = Date.now();
     }
     document.getElementById('ocrReview').innerHTML = '';
     updateStats();
@@ -795,6 +884,16 @@
       btn.classList.add('active');
       render(btn.dataset.sort);
     });
+  });
+
+  // Search + core-only filter
+  const searchEl = document.getElementById('search');
+  searchEl.addEventListener('input', () => { searchTerm = searchEl.value; render(currentSort); });
+  const coreOnlyBtn = document.getElementById('coreOnlyBtn');
+  coreOnlyBtn.addEventListener('click', () => {
+    coreOnly = !coreOnly;
+    coreOnlyBtn.classList.toggle('active', coreOnly);
+    render(currentSort);
   });
 
   // Seat-estimate disclaimer + band legend (single-sourced from the estimator)
