@@ -367,6 +367,12 @@
   const svrOf = m => m.server || DEFAULT_SERVER;
   const allyOf = m => m.alliance || DEFAULT_ALLIANCE;
 
+  // Distinct colours per value — cool palette for servers, warm for alliances.
+  // Assigned by sorted-distinct index, so each server/alliance gets its own
+  // colour (1066 ≠ 1115, MOLI ≠ UP4) and new values pick up the next colour.
+  const SERVER_COLORS = ['#2b5d8f', '#2c6e6e', '#3f6f3f', '#3a4f8c', '#2f6f7a', '#4a5a8c'];
+  const ALLIANCE_COLORS = ['#8c3b52', '#7a3b8c', '#b0682c', '#8c5a2c', '#a23b6e', '#6e4f3b'];
+
   let roster = SEED.map(m => ({ ...m }));
   let core = new Set();
   let currentSort = 'thp';
@@ -634,6 +640,12 @@
     if (rc) rc.textContent = (q || coreOnly || serverFilter || allianceFilter)
       ? (visible.length + ' of ' + roster.length + ' shown') : '';
 
+    // Per-value tag colours (recomputed each render so new values get a colour).
+    const distinctServers = [...new Set(roster.map(svrOf))].sort();
+    const distinctAlliances = [...new Set(roster.map(allyOf))].sort();
+    const svrStyle = v => 'background:' + SERVER_COLORS[Math.max(0, distinctServers.indexOf(v)) % SERVER_COLORS.length] + ';color:#f0f4f8;';
+    const allyStyle = v => 'background:' + ALLIANCE_COLORS[Math.max(0, distinctAlliances.indexOf(v)) % ALLIANCE_COLORS.length] + ';color:#f0f4f8;';
+
     tbody.innerHTML = '';
     visible.forEach((m) => {
       const rank = sorted.indexOf(m); // 0-based rank in the full sort
@@ -662,8 +674,8 @@
         (m.notes ? ' <span class="note-flag" title="' + escAttr(m.notes) + '">📝</span>' : '') +
         ' <span class="note-btn" title="Add / edit note">✎</span>' +
         '<div class="meta">' +
-          '<span class="tag tag-ally editable-str" data-field="alliance" title="Tap to edit alliance">' + escAttr(allyOf(m)) + '</span>' +
-          '<span class="tag tag-svr editable-str" data-field="server" title="Tap to edit server">S' + escAttr(svrOf(m)) + '</span>' +
+          '<span class="tag tag-ally editable-str" data-field="alliance" title="Tap to edit alliance" style="' + allyStyle(allyOf(m)) + '">' + escAttr(allyOf(m)) + '</span>' +
+          '<span class="tag tag-svr editable-str" data-field="server" title="Tap to edit server" style="' + svrStyle(svrOf(m)) + '">S' + escAttr(svrOf(m)) + '</span>' +
           (m.updated ? '<span class="upd" title="Last updated ' + escAttr(new Date(m.updated).toLocaleString()) + '">&middot; upd ' + relTime(m.updated) + '</span>' : '') +
         '</div>' +
         '</td>';
