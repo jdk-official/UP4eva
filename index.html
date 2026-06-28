@@ -94,10 +94,16 @@
   .toolbar .toggle { background: var(--panel); color: #cdd9e8; border: 1px solid #3d506b; padding: 8px 12px; border-radius: 8px; font-size: 0.82rem; cursor: pointer; font-weight: 600; }
   .toolbar .toggle.active { background: var(--core); color: #3a2c08; border-color: var(--core); }
   .result-count { color: #7e90a6; font-size: 0.78rem; margin-left: auto; }
+  .toolbar select { background: var(--panel); color: #cdd9e8; border: 1px solid #3d506b; border-radius: 8px; padding: 7px 10px; font-size: 0.82rem; cursor: pointer; }
   td.name .note-flag { font-size: 0.8rem; cursor: pointer; }
   td.name .note-btn { cursor: pointer; opacity: 0.3; font-size: 0.85rem; user-select: none; }
   td.name .note-btn:hover { opacity: 0.85; }
-  td.name .upd { font-size: 0.62rem; color: #7e90a6; font-weight: 600; margin-top: 2px; }
+  td.name .meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-top: 3px; font-size: 0.62rem; color: #7e90a6; font-weight: 600; }
+  td.name .upd { color: #7e90a6; }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 8px; font-weight: 700; cursor: pointer; letter-spacing: 0.2px; }
+  .tag-ally { background: #3b4a63; color: #cdd9e8; }
+  .tag-svr { background: #2b3a4f; color: #9fb0c4; }
+  .tag:hover { outline: 1px solid var(--accent); }
   td.seat { text-align: center; white-space: nowrap; }
   thead th.seat { text-align: center; }
   .seat-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; }
@@ -194,6 +200,8 @@
 
   <div class="toolbar">
     <input type="search" id="search" class="search-box" placeholder="&#128269; Search commander&hellip;" autocomplete="off">
+    <select id="serverFilter" title="Filter by server"></select>
+    <select id="allianceFilter" title="Filter by alliance"></select>
     <button id="coreOnlyBtn" class="toggle" title="Show core members only">&#9733; Core only</button>
     <span class="result-count" id="resultCount"></span>
   </div>
@@ -354,11 +362,31 @@
     return Math.floor(d / 365) + 'y ago';
   };
 
+  const DEFAULT_SERVER = '1115';
+  const DEFAULT_ALLIANCE = 'UP4';
+  const svrOf = m => m.server || DEFAULT_SERVER;
+  const allyOf = m => m.alliance || DEFAULT_ALLIANCE;
+
   let roster = SEED.map(m => ({ ...m }));
   let core = new Set();
   let currentSort = 'thp';
   let searchTerm = '';
   let coreOnly = false;
+  let serverFilter = '';
+  let allianceFilter = '';
+
+  // Rebuild the server/alliance filter dropdowns from the current roster values.
+  function refreshFilters() {
+    const fill = (sel, values, allLabel, current) => {
+      if (!sel) return;
+      const uniq = [...new Set(values)].sort();
+      sel.innerHTML = ['<option value="">' + allLabel + '</option>']
+        .concat(uniq.map(v => '<option value="' + escAttr(v) + '">' + escAttr(v) + '</option>')).join('');
+      sel.value = uniq.includes(current) ? current : '';
+    };
+    fill(document.getElementById('serverFilter'), roster.map(svrOf), 'All servers', serverFilter);
+    fill(document.getElementById('allianceFilter'), roster.map(allyOf), 'All alliances', allianceFilter);
+  }
 
   function cacheLocal() {
     try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ core: [...core], roster })); } catch (e) {}
@@ -501,6 +529,38 @@
     input.addEventListener('blur', () => commit(true));
   }
 
+  // Tap-to-edit a short string field (server / alliance); empty reverts to the
+  // default so every member always has a value.
+  function editStr(cell, field) {
+    if (cell.querySelector('input')) return;
+    const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
+    if (!m) return;
+    const fallback = field === 'server' ? DEFAULT_SERVER : DEFAULT_ALLIANCE;
+    cell.innerHTML = '<input class="note-edit" value="' + escAttr(m[field] != null ? m[field] : fallback) + '" placeholder="' + field + '" maxlength="12">';
+    const input = cell.querySelector('input');
+    input.focus();
+    input.select();
+    let done = false;
+    const commit = async (save) => {
+      if (done) return;
+      done = true;
+      if (save) {
+        m[field] = (input.value.trim() || fallback);
+        m.updated = Date.now();
+        refreshFilters();
+        render(currentSort);
+        await saveState();
+      } else {
+        render(currentSort);
+      }
+    };
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+    });
+    input.addEventListener('blur', () => commit(true));
+  }
+
   function updateStats() {
     document.getElementById('memberCount').textContent = roster.length;
     document.getElementById('coreCount').textContent = core.size;
@@ -563,13 +623,16 @@
       return b.thp - a.thp;
     });
 
-    // Filter (search by name + optional core-only) without losing true rank.
+    // Filter (search + server + alliance + optional core-only) without losing true rank.
     const q = searchTerm.trim().toLowerCase();
     const visible = sorted.filter(m =>
       (!q || m.name.toLowerCase().includes(q)) &&
-      (!coreOnly || core.has(m.name)));
+      (!coreOnly || core.has(m.name)) &&
+      (!serverFilter || svrOf(m) === serverFilter) &&
+      (!allianceFilter || allyOf(m) === allianceFilter));
     const rc = document.getElementById('resultCount');
-    if (rc) rc.textContent = (q || coreOnly) ? (visible.length + ' of ' + roster.length + ' shown') : '';
+    if (rc) rc.textContent = (q || coreOnly || serverFilter || allianceFilter)
+      ? (visible.length + ' of ' + roster.length + ' shown') : '';
 
     tbody.innerHTML = '';
     visible.forEach((m) => {
@@ -598,7 +661,11 @@
         '<span class="cmd">' + safeName + '</span>' +
         (m.notes ? ' <span class="note-flag" title="' + escAttr(m.notes) + '">📝</span>' : '') +
         ' <span class="note-btn" title="Add / edit note">✎</span>' +
-        (m.updated ? '<div class="upd" title="Last updated ' + escAttr(new Date(m.updated).toLocaleString()) + '">upd ' + relTime(m.updated) + '</div>' : '') +
+        '<div class="meta">' +
+          '<span class="tag tag-ally editable-str" data-field="alliance" title="Tap to edit alliance">' + escAttr(allyOf(m)) + '</span>' +
+          '<span class="tag tag-svr editable-str" data-field="server" title="Tap to edit server">S' + escAttr(svrOf(m)) + '</span>' +
+          (m.updated ? '<span class="upd" title="Last updated ' + escAttr(new Date(m.updated).toLocaleString()) + '">&middot; upd ' + relTime(m.updated) + '</span>' : '') +
+        '</div>' +
         '</td>';
       tr.innerHTML =
         '<td>' + (rank + 1) + '</td>' +
@@ -637,6 +704,15 @@
         editNote(cell, decode(cell.getAttribute('data-name')));
       });
     });
+
+    // Tap-to-edit alliance / server tags.
+    tbody.querySelectorAll('.editable-str').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cell = el.closest('td.name');
+        editStr(cell, el.getAttribute('data-field'));
+      });
+    });
   }
 
   // ---- CSV export (for Google Sheets / Excel) -------------------------------
@@ -656,13 +732,15 @@
       if (b.thp == null) return -1;
       return b.thp - a.thp;
     });
-    const headers = ['Rank', 'Commander', 'Core', 'THP', 'Kills (M)', 'Squad 1',
+    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'THP', 'Kills (M)', 'Squad 1',
       'Seat colour', 'Role', 'Confidence', 'Squad/THP ratio', 'Squad 1 estimated', 'Flags', 'Explanation'];
     const lines = sorted.map((m, i) => {
       const e = seatOf(m);
       return [
         i + 1,
         m.name,
+        svrOf(m),
+        allyOf(m),
         core.has(m.name) ? 'Yes' : '',
         m.thp == null ? '' : m.thp,
         (Number(m.kills) || 0).toFixed(2),
@@ -833,13 +911,16 @@
       if (!val) continue;
 
       let m = roster.find(x => norm(x.name) === norm(name));
-      if (!m) { m = { name, thp: null, kills: 0 }; roster.push(m); added++; }
-      else updated++;
+      if (!m) {
+        m = { name, thp: null, kills: 0, server: (serverFilter || DEFAULT_SERVER), alliance: (allianceFilter || DEFAULT_ALLIANCE) };
+        roster.push(m); added++;
+      } else updated++;
       if (type === 'thp') m.thp = val;
       else m.kills = val / 1e6;
       m.updated = Date.now();
     }
     document.getElementById('ocrReview').innerHTML = '';
+    refreshFilters();
     updateStats();
     render(currentSort);
     saveState();
@@ -895,6 +976,10 @@
     coreOnlyBtn.classList.toggle('active', coreOnly);
     render(currentSort);
   });
+  const serverFilterEl = document.getElementById('serverFilter');
+  serverFilterEl.addEventListener('change', () => { serverFilter = serverFilterEl.value; render(currentSort); });
+  const allianceFilterEl = document.getElementById('allianceFilter');
+  allianceFilterEl.addEventListener('change', () => { allianceFilter = allianceFilterEl.value; render(currentSort); });
 
   // Seat-estimate disclaimer + band legend (single-sourced from the estimator)
   (function () {
@@ -931,6 +1016,7 @@
 
   document.getElementById('refreshBtn').addEventListener('click', async () => {
     await loadState();
+    refreshFilters();
     updateStats();
     render(currentSort);
   });
@@ -938,12 +1024,13 @@
   // Re-sync shared data when the tab regains focus (quota-friendly: no polling).
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && configured()) {
-      loadState().then(() => { updateStats(); render(currentSort); });
+      loadState().then(() => { refreshFilters(); updateStats(); render(currentSort); });
     }
   });
 
   (async () => {
     await loadState();
+    refreshFilters();
     updateStats();
     render('thp');
   })();
