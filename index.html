@@ -688,7 +688,10 @@
       const thpCell = '<td class="num editable thp' + (m.thp == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="thp" title="Tap to edit THP">' + thpInner + '</td>';
       const squadCell = '<td class="num editable squad1' + (m.squad1 == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="squad1" title="Tap to edit Squad 1">' + (m.squad1 == null ? 'TBC' : fmtM(m.squad1)) + '</td>';
       const rankCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonRank" title="Tap to edit JKs Season Rank">' + (m.seasonRank == null ? '&mdash;' : m.seasonRank) + '</td>';
-      const scoreCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonScore" title="Tap to edit JKs Season Score">' + (m.seasonScore == null ? '&mdash;' : m.seasonScore) + '</td>';
+      const scoreTip = (m.seasonScore != null && m.seasonCG != null)
+        ? 'CG ' + m.seasonCG + ' · Cap ' + m.seasonCap + ' · Kills ' + m.seasonKills + ' — tap to edit'
+        : 'Tap to edit JKs Season Score';
+      const scoreCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonScore" title="' + escAttr(scoreTip) + '">' + (m.seasonScore == null ? '&mdash;' : m.seasonScore) + '</td>';
       const est = seatOf(m);
       const seatCell = est
         ? '<td class="seat" title="' + escAttr(est.explanation + (est.flags.length ? ' · Flags: ' + est.flags.join(', ') : '')) + '">' +
@@ -785,7 +788,7 @@
       return b.thp - a.thp;
     });
     const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1',
-      'JKs Season Rank', 'JKs Season Score',
+      'JKs Season Rank', 'JKs Season Score', 'CG norm', 'Cap norm', 'Kills norm',
       'Seat colour', 'Role', 'Confidence', 'Squad/THP ratio', 'Squad 1 estimated', 'Flags', 'Explanation'];
     const lines = sorted.map((m, i) => {
       const e = seatOf(m);
@@ -801,6 +804,9 @@
         m.squad1 == null ? '' : m.squad1,
         m.seasonRank == null ? '' : m.seasonRank,
         m.seasonScore == null ? '' : m.seasonScore,
+        m.seasonCG == null ? '' : m.seasonCG,
+        m.seasonCap == null ? '' : m.seasonCap,
+        m.seasonKills == null ? '' : m.seasonKills,
         e ? e.colour : '',
         e ? e.role : '',
         e ? e.confidence : '',
