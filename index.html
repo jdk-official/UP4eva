@@ -176,6 +176,7 @@
     <button data-sort="kills">Sort by Kills</button>
     <button data-sort="squad1">Sort by Squad 1</button>
     <button data-sort="seat">Sort by Seat</button>
+    <button data-sort="season">Sort by Season Score</button>
     <button data-sort="core">Core first</button>
     <button data-sort="name">Sort by Name</button>
     <button id="importBtn" title="Import stats from a screenshot">&#11014; Import</button>
@@ -209,6 +210,7 @@
     <select id="serverFilter" title="Filter by server"></select>
     <select id="allianceFilter" title="Filter by alliance"></select>
     <button id="coreOnlyBtn" class="toggle" title="Show core members only">&#9733; Core only</button>
+    <button id="votedOnlyBtn" class="toggle" title="Show 'Voted Yes' members only">&#10004; Voted only</button>
     <span class="result-count" id="resultCount"></span>
   </div>
 
@@ -388,6 +390,7 @@
   let currentSort = 'thp';
   let searchTerm = '';
   let coreOnly = false;
+  let votedOnly = false;
   let serverFilter = '';
   let allianceFilter = '';
 
@@ -643,6 +646,13 @@
         if (sb == null) return -1;
         return sb - sa;
       }
+      if (sortKey === 'season') {
+        const sa = a.seasonScore, sb = b.seasonScore;
+        if (sa == null && sb == null) return (b.thp || 0) - (a.thp || 0);
+        if (sa == null) return 1;   // members without a season score go last
+        if (sb == null) return -1;
+        return sb - sa;             // highest score first
+      }
       if (sortKey === 'core') {
         const ca = core.has(a.name) ? 1 : 0;
         const cb = core.has(b.name) ? 1 : 0;
@@ -659,10 +669,11 @@
     const visible = sorted.filter(m =>
       (!q || m.name.toLowerCase().includes(q)) &&
       (!coreOnly || core.has(m.name)) &&
+      (!votedOnly || votedYes.has(m.name)) &&
       (!serverFilter || svrOf(m) === serverFilter) &&
       (!allianceFilter || allyOf(m) === allianceFilter));
     const rc = document.getElementById('resultCount');
-    if (rc) rc.textContent = (q || coreOnly || serverFilter || allianceFilter)
+    if (rc) rc.textContent = (q || coreOnly || votedOnly || serverFilter || allianceFilter)
       ? (visible.length + ' of ' + roster.length + ' shown') : '';
 
     // Per-value tag colours (recomputed each render so new values get a colour).
@@ -1036,6 +1047,12 @@
   coreOnlyBtn.addEventListener('click', () => {
     coreOnly = !coreOnly;
     coreOnlyBtn.classList.toggle('active', coreOnly);
+    render(currentSort);
+  });
+  const votedOnlyBtn = document.getElementById('votedOnlyBtn');
+  votedOnlyBtn.addEventListener('click', () => {
+    votedOnly = !votedOnly;
+    votedOnlyBtn.classList.toggle('active', votedOnly);
     render(currentSort);
   });
   const serverFilterEl = document.getElementById('serverFilter');
