@@ -221,6 +221,8 @@
         <th class="num">THP</th>
         <th class="num">Kills (M)</th>
         <th class="num">Squad 1</th>
+        <th class="num">JKs Season Rank</th>
+        <th class="num">JKs Season Score</th>
         <th class="seat">Seat</th>
         <th class="core">Core</th>
         <th class="vote">Voted Yes</th>
@@ -495,8 +497,13 @@
     if (cell.querySelector('input')) return;
     const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
     if (!m) return;
-    const cur = m[field] == null ? '' : (field === 'thp' ? String(m[field]) : fmtM(m[field]));
-    const ph = field === 'thp' ? 'e.g. 175.8M or 175800000' : 'e.g. 52.8M';
+    const isPower = field === 'squad1';
+    const cur = m[field] == null ? '' : (isPower ? fmtM(m[field]) : String(m[field]));
+    const ph = field === 'thp' ? 'e.g. 175.8M or 175800000'
+      : field === 'squad1' ? 'e.g. 52.8M'
+      : field === 'seasonRank' ? 'e.g. 91'
+      : field === 'seasonScore' ? 'e.g. 132'
+      : '';
     cell.innerHTML = '<input class="cell-edit" inputmode="decimal" value="' + escAttr(cur) + '" placeholder="' + ph + '">';
     const input = cell.querySelector('input');
     input.focus();
@@ -680,6 +687,8 @@
         : '<span class="thp-full">' + fmt(m.thp) + '</span><span class="thp-short">' + fmtM(m.thp) + '</span>';
       const thpCell = '<td class="num editable thp' + (m.thp == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="thp" title="Tap to edit THP">' + thpInner + '</td>';
       const squadCell = '<td class="num editable squad1' + (m.squad1 == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="squad1" title="Tap to edit Squad 1">' + (m.squad1 == null ? 'TBC' : fmtM(m.squad1)) + '</td>';
+      const rankCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonRank" title="Tap to edit JKs Season Rank">' + (m.seasonRank == null ? '&mdash;' : m.seasonRank) + '</td>';
+      const scoreCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonScore" title="Tap to edit JKs Season Score">' + (m.seasonScore == null ? '&mdash;' : m.seasonScore) + '</td>';
       const est = seatOf(m);
       const seatCell = est
         ? '<td class="seat" title="' + escAttr(est.explanation + (est.flags.length ? ' · Flags: ' + est.flags.join(', ') : '')) + '">' +
@@ -704,6 +713,8 @@
         thpCell +
         '<td class="num">' + (Number(m.kills) || 0).toFixed(2) + '</td>' +
         squadCell +
+        rankCell +
+        scoreCell +
         seatCell +
         '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>' +
         '<td class="vote"><span class="vote-mark ' + votedOn + '" data-name="' + safeName + '">✔</span></td>';
@@ -711,7 +722,7 @@
     });
 
     if (!visible.length) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
     }
 
     // The whole Core cell is the tap target (bigger than the ★ glyph for touch).
@@ -774,6 +785,7 @@
       return b.thp - a.thp;
     });
     const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1',
+      'JKs Season Rank', 'JKs Season Score',
       'Seat colour', 'Role', 'Confidence', 'Squad/THP ratio', 'Squad 1 estimated', 'Flags', 'Explanation'];
     const lines = sorted.map((m, i) => {
       const e = seatOf(m);
@@ -787,6 +799,8 @@
         m.thp == null ? '' : m.thp,
         (Number(m.kills) || 0).toFixed(2),
         m.squad1 == null ? '' : m.squad1,
+        m.seasonRank == null ? '' : m.seasonRank,
+        m.seasonScore == null ? '' : m.seasonScore,
         e ? e.colour : '',
         e ? e.role : '',
         e ? e.confidence : '',
