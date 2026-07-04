@@ -390,7 +390,7 @@
   let currentSort = 'thp';
   let searchTerm = '';
   let coreOnly = false;
-  let votedOnly = false;
+  let votedOnly = true;   // default view: show only 'Voted Yes' members
   let serverFilter = '';
   let allianceFilter = '';
 
@@ -1050,6 +1050,7 @@
     render(currentSort);
   });
   const votedOnlyBtn = document.getElementById('votedOnlyBtn');
+  votedOnlyBtn.classList.toggle('active', votedOnly); // reflect the default-on state
   votedOnlyBtn.addEventListener('click', () => {
     votedOnly = !votedOnly;
     votedOnlyBtn.classList.toggle('active', votedOnly);
