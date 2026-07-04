@@ -34,7 +34,13 @@
     padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; font-weight: 600;
   }
   .controls button.active { background: var(--accent); color: #10220a; border-color: var(--accent); }
-  .controls button#importBtn { margin-left: auto; }
+  .controls button#editBtn { margin-left: auto; }
+  .controls button#editBtn.unlocked { background: var(--accent); color: #10220a; border-color: var(--accent); }
+  body.readonly td.editable, body.readonly td.core, body.readonly td.vote,
+  body.readonly .editable-str, body.readonly .note-btn { cursor: default; }
+  body.readonly td.editable:hover { text-decoration: none; }
+  body.readonly .note-btn { display: none; }
+  body.readonly .tag:hover { outline: none; }
   .summary { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
   .stat { background: var(--panel); border-radius: 10px; padding: 10px 14px; flex: 1; min-width: 100px; }
   .stat .label { font-size: 0.7rem; color: #9fb0c4; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -179,6 +185,7 @@
     <button data-sort="season">Sort by Season Score</button>
     <button data-sort="core">Core first</button>
     <button data-sort="name">Sort by Name</button>
+    <button id="editBtn" title="Unlock editing with the password">&#128274; Edit</button>
     <button id="importBtn" title="Import stats from a screenshot">&#11014; Import</button>
     <button id="exportBtn" title="Download roster (with seat estimates) as CSV for Google Sheets / Excel">&#11015; Export CSV</button>
     <button id="refreshBtn" title="Reload shared data">&#8635; Refresh</button>
@@ -393,6 +400,8 @@
   let votedOnly = true;   // default view: show only 'Voted Yes' members
   let serverFilter = '';
   let allianceFilter = '';
+  let editMode = false;   // page is view-only until unlocked with the password
+  let editHash = null;    // SHA-256 of the shared edit password (set by the user, stored in the bin)
 
   // Rebuild the server/alliance filter dropdowns from the current roster values.
   function refreshFilters() {
@@ -408,7 +417,7 @@
   }
 
   function cacheLocal() {
-    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ core: [...core], votedYes: [...votedYes], roster })); } catch (e) {}
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ core: [...core], votedYes: [...votedYes], editHash, roster })); } catch (e) {}
   }
 
   async function loadState() {
@@ -419,6 +428,7 @@
         const o = JSON.parse(c);
         if (Array.isArray(o.core)) core = new Set(o.core);
         votedYes = Array.isArray(o.votedYes) ? new Set(o.votedYes) : new Set(core);
+        if (o.editHash) editHash = o.editHash;
         if (Array.isArray(o.roster) && o.roster.length) roster = o.roster;
       }
     } catch (e) {}
@@ -435,6 +445,7 @@
       const rec = await res.json();
       if (Array.isArray(rec.core)) core = new Set(rec.core);
       votedYes = Array.isArray(rec.votedYes) ? new Set(rec.votedYes) : new Set(core);
+      if (rec.editHash) editHash = rec.editHash;
       if (Array.isArray(rec.roster) && rec.roster.length) {
         roster = rec.roster;
       } else {
@@ -458,7 +469,7 @@
       const res = await fetch(JSONBIN.base + '/' + JSONBIN.binId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-Access-Key': JSONBIN.accessKey },
-        body: JSON.stringify({ core: [...core], votedYes: [...votedYes], roster })
+        body: JSON.stringify({ core: [...core], votedYes: [...votedYes], editHash, roster })
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       if (!silent) statusEl.textContent = 'Saved & shared.';
@@ -467,7 +478,32 @@
     }
   }
 
+  // ---- Password-gated editing -----------------------------------------------
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Every data-mutating action calls this first. In view-only mode it blocks the
+  // change and nudges the user to unlock. (Soft gate — see the note in the code
+  // comments: the storage key is public, so this deters casual edits only.)
+  function requireEdit() {
+    if (editMode) return true;
+    statusEl.textContent = '🔒 Editing is locked — click "Edit" and enter the password to make changes.';
+    return false;
+  }
+
+  function updateEditUI() {
+    document.body.classList.toggle('readonly', !editMode);
+    const btn = document.getElementById('editBtn');
+    if (btn) {
+      btn.classList.toggle('unlocked', editMode);
+      btn.innerHTML = editMode ? '🔓 Editing (click to lock)' : '🔒 Edit';
+    }
+  }
+
   async function toggleCore(name) {
+    if (!requireEdit()) return;
     if (core.has(name)) core.delete(name); else core.add(name);
     updateStats();
     render(currentSort);
@@ -475,6 +511,7 @@
   }
 
   async function toggleVotedYes(name) {
+    if (!requireEdit()) return;
     if (votedYes.has(name)) votedYes.delete(name); else votedYes.add(name);
     updateStats();
     render(currentSort);
@@ -497,6 +534,7 @@
   // Tap-to-edit a numeric field (thp or squad1); saves to the shared store and
   // stamps the member's last-updated time.
   function editField(cell, field) {
+    if (!requireEdit()) return;
     if (cell.querySelector('input')) return;
     const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
     if (!m) return;
@@ -534,6 +572,7 @@
 
   // Tap-to-edit a member's free-text note.
   function editNote(cell, name) {
+    if (!requireEdit()) return;
     if (cell.querySelector('input')) return;
     const m = roster.find(x => x.name === name);
     if (!m) return;
@@ -565,6 +604,7 @@
   // Tap-to-edit a short string field (server / alliance); empty reverts to the
   // default so every member always has a value.
   function editStr(cell, field) {
+    if (!requireEdit()) return;
     if (cell.querySelector('input')) return;
     const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
     if (!m) return;
@@ -973,6 +1013,7 @@
   }
 
   function applyReview(type) {
+    if (!requireEdit()) return;
     const trs = [...document.querySelectorAll('#ocrReview tr[data-i]')];
     let updated = 0, added = 0;
     for (const tr of trs) {
@@ -1079,6 +1120,36 @@
   document.getElementById('ocrRun').addEventListener('click', runOCR);
   document.getElementById('exportBtn').addEventListener('click', exportCSV);
 
+  // Edit lock: view-only by default; a shared password unlocks editing for the session.
+  document.getElementById('editBtn').addEventListener('click', async () => {
+    if (editMode) {
+      editMode = false; updateEditUI(); render(currentSort);
+      statusEl.textContent = 'Editing locked.';
+      return;
+    }
+    try {
+      if (!editHash) {
+        const pw = prompt('No edit password set yet. Choose one to protect editing (shared with everyone):');
+        if (!pw) return;
+        editHash = await sha256(pw);
+        editMode = true; updateEditUI(); render(currentSort);
+        await saveState();  // persist the new password hash to the shared store
+        statusEl.textContent = 'Edit password set — editing unlocked.';
+      } else {
+        const pw = prompt('Enter edit password:');
+        if (pw == null) return;
+        if (await sha256(pw) === editHash) {
+          editMode = true; updateEditUI(); render(currentSort);
+          statusEl.textContent = 'Editing unlocked.';
+        } else {
+          statusEl.textContent = 'Wrong password — editing stays locked.';
+        }
+      }
+    } catch (e) {
+      statusEl.textContent = 'Could not process the password (requires HTTPS).';
+    }
+  });
+
   // Paste a screenshot straight in while the import panel is open.
   document.addEventListener('paste', e => {
     const p = document.getElementById('importPanel');
@@ -1113,6 +1184,7 @@
     refreshFilters();
     updateStats();
     render('thp');
+    updateEditUI();  // start in view-only mode
   })();
 </script>
 </body>
