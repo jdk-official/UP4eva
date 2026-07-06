@@ -266,7 +266,7 @@
         <th>#</th>
         <th>Commander</th>
         <th class="num">THP</th>
-        <th class="num">Kills (M)</th>
+        <th class="num">Kills</th>
         <th class="num">Squad 1</th>
         <th class="num">JKs Season Rank</th>
         <th class="num">JKs Season Score</th>
@@ -404,6 +404,9 @@
   const statusEl = document.getElementById('status');
   const fmt = n => n.toLocaleString('en-US');
   const fmtM = n => n >= 1e9 ? (n / 1e9).toFixed(2) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : (n / 1e3).toFixed(0) + 'K';
+  // Consistent millions display for THP / Kills / Squad 1 (input already in
+  // millions). Up to 2 decimals, trailing zeros trimmed: 175.78M, 44.6M, 0.05M.
+  const fmtMil = mil => (Math.round(mil * 100) / 100) + 'M';
   const norm = s => (s || '').toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
   const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   const decode = s => (s || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
@@ -773,10 +776,8 @@
       tr.className = classes.join(' ');
 
       const safeName = m.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-      const thpInner = m.thp == null ? 'TBC'
-        : '<span class="thp-full">' + fmt(m.thp) + '</span><span class="thp-short">' + fmtM(m.thp) + '</span>';
-      const thpCell = '<td class="num editable thp' + (m.thp == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="thp" title="Tap to edit THP">' + thpInner + '</td>';
-      const squadCell = '<td class="num editable squad1' + (m.squad1 == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="squad1" title="Tap to edit Squad 1">' + (m.squad1 == null ? 'TBC' : fmtM(m.squad1)) + '</td>';
+      const thpCell = '<td class="num editable thp' + (m.thp == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="thp" title="Tap to edit THP">' + (m.thp == null ? 'TBC' : fmtMil(m.thp / 1e6)) + '</td>';
+      const squadCell = '<td class="num editable squad1' + (m.squad1 == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="squad1" title="Tap to edit Squad 1">' + (m.squad1 == null ? 'TBC' : fmtMil(m.squad1 / 1e6)) + '</td>';
       const rankCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonRank" title="Tap to edit JKs Season Rank">' + (m.seasonRank == null ? '&mdash;' : m.seasonRank) + '</td>';
       const scoreTip = (m.seasonScore != null && m.seasonCG != null)
         ? 'CG ' + m.seasonCG + ' · Cap ' + m.seasonCap + ' · Kills ' + m.seasonKills + ' — tap to edit'
@@ -804,7 +805,7 @@
         '<td>' + (rank + 1) + '</td>' +
         nameCell +
         thpCell +
-        '<td class="num">' + (Number(m.kills) || 0).toFixed(2) + '</td>' +
+        '<td class="num">' + fmtMil(Number(m.kills) || 0) + '</td>' +
         squadCell +
         rankCell +
         scoreCell +
