@@ -467,6 +467,11 @@
   let allianceFilter = '';
   let editMode = false;   // page is view-only until unlocked with the password
   let editHash = null;    // SHA-256 of the shared edit password (set by the user, stored in the bin)
+  // Merge-on-save baselines: the core / voted membership we last synced with the
+  // remote store. On save we push only the names WE added/removed since, so a
+  // concurrent edit from another tab or phone can't wipe everyone else's changes.
+  let syncedCore = new Set();
+  let syncedVoted = new Set();
 
   // Rebuild the server/alliance filter dropdowns from the current roster values.
   function refreshFilters() {
@@ -511,6 +516,8 @@
       if (Array.isArray(rec.core)) core = new Set(rec.core);
       votedYes = Array.isArray(rec.votedYes) ? new Set(rec.votedYes) : new Set(core);
       if (rec.editHash) editHash = rec.editHash;
+      syncedCore = new Set(core);   // baseline: what the remote has right now
+      syncedVoted = new Set(votedYes);
       if (Array.isArray(rec.roster) && rec.roster.length) {
         roster = rec.roster;
       } else {
@@ -523,6 +530,45 @@
     }
   }
 
+  // Re-fetch the freshest remote record (cache-busted) so a save can merge onto
+  // whatever others have written, instead of overwriting the whole store.
+  async function fetchRemoteRecord() {
+    const res = await fetch(JSONBIN.base + '/' + JSONBIN.binId + '/latest?_cb=' + Date.now(), {
+      headers: { 'X-Access-Key': JSONBIN.accessKey, 'X-Bin-Meta': 'false' }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
+  // Merge our in-memory state onto a freshly-fetched remote record.
+  // Roster: per-member last-write-wins by the member's `updated` timestamp, so we
+  //   only override members WE just changed and keep everyone else's remote copy.
+  // Core / Voted: apply only the names WE added or removed since the last sync.
+  function mergeOntoRemote(remote) {
+    const rRoster = Array.isArray(remote.roster) ? remote.roster : [];
+    const remoteByName = new Map(rRoster.map(m => [m.name, m]));
+    const localByName = new Map(roster.map(m => [m.name, m]));
+    const mergedRoster = [];
+    new Set([...remoteByName.keys(), ...localByName.keys()]).forEach(n => {
+      const lm = localByName.get(n), rm = remoteByName.get(n);
+      if (lm && rm) mergedRoster.push((lm.updated || 0) > (rm.updated || 0) ? lm : rm);
+      else mergedRoster.push(lm || rm);
+    });
+
+    const mergeSet = (localSet, baseline, remoteArr) => {
+      const merged = new Set(Array.isArray(remoteArr) ? remoteArr : []);
+      localSet.forEach(n => { if (!baseline.has(n)) merged.add(n); });    // our adds
+      baseline.forEach(n => { if (!localSet.has(n)) merged.delete(n); }); // our removes
+      return merged;
+    };
+    return {
+      core: mergeSet(core, syncedCore, remote.core),
+      votedYes: mergeSet(votedYes, syncedVoted, remote.votedYes),
+      editHash: editHash != null ? editHash : (remote.editHash != null ? remote.editHash : null),
+      roster: mergedRoster
+    };
+  }
+
   async function saveState(silent) {
     cacheLocal();
     if (!configured()) {
@@ -531,13 +577,31 @@
     }
     if (!silent) statusEl.textContent = 'Saving…';
     try {
+      // Merge onto the freshest remote so concurrent edits aren't clobbered.
+      let merged;
+      try {
+        merged = mergeOntoRemote(await fetchRemoteRecord());
+      } catch (e) {
+        // Can't read remote to merge — do NOT overwrite it with a stale snapshot.
+        if (!silent) statusEl.textContent = 'Saved to this device (offline — will sync on next edit).';
+        return;
+      }
       const res = await fetch(JSONBIN.base + '/' + JSONBIN.binId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-Access-Key': JSONBIN.accessKey },
-        body: JSON.stringify({ core: [...core], votedYes: [...votedYes], editHash, roster })
+        body: JSON.stringify({ core: [...merged.core], votedYes: [...merged.votedYes], editHash: merged.editHash, roster: merged.roster })
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      if (!silent) statusEl.textContent = 'Saved & shared.';
+      // Adopt the merged result so this tab now reflects others' concurrent changes.
+      core = merged.core; votedYes = merged.votedYes; editHash = merged.editHash; roster = merged.roster;
+      syncedCore = new Set(core); syncedVoted = new Set(votedYes);
+      cacheLocal();
+      if (!silent) {
+        updateStats();
+        refreshFilters();
+        render(currentSort);
+        statusEl.textContent = 'Saved & shared.';
+      }
     } catch (e) {
       if (!silent) statusEl.textContent = 'Could not save to shared storage (saved locally).';
     }
