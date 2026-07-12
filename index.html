@@ -261,6 +261,7 @@
     <button id="coreOnlyBtn" class="toggle" title="Show core members only">&#9733; Core only</button>
     <button id="votedOnlyBtn" class="toggle" title="Show 'Voted Yes' members only">&#10004; Voted only</button>
     <button id="squadsOnlyBtn" class="toggle" title="Show only members tracked for Squad 2/3">&#9876;&#65039; T2/3 group</button>
+    <button id="expandAllBtn" class="toggle" title="Expand/collapse all member details">&#9662; Expand all</button>
     <span class="result-count" id="resultCount"></span>
   </div>
 
@@ -460,6 +461,7 @@
   let coreOnly = false;
   let votedOnly = true;   // default view: show only 'Voted Yes' members
   let squadsOnly = false; // toolbar filter: show only the hand-picked T2/T3 group
+  let expandAll = false;  // toolbar toggle: open every visible member's detail strip
   const expandedSquads = new Set(); // names with their Squad 2/3 strip open (session-only)
   let serverFilter = '';
   let allianceFilter = '';
@@ -914,7 +916,7 @@
       const on = core.has(m.name) ? 'on' : '';
       const votedOn = votedYes.has(m.name) ? 'on' : '';
       // Squad 2/3 expander: always visible; editing inside the strip stays gated.
-      const expOpen = expandedSquads.has(m.name);
+      const expOpen = expandAll || expandedSquads.has(m.name);
       const nameCell = '<td class="name" data-name="' + safeName + '">' +
         '<span class="sq-exp' + (expOpen ? ' open' : '') + '" data-name="' + safeName + '" title="Squad 2/3 details">&#9656;</span>' +
         '<span class="cmd">' + safeName + '</span>' +
@@ -1343,6 +1345,14 @@
   squadsOnlyBtn.addEventListener('click', () => {
     squadsOnly = !squadsOnly;
     squadsOnlyBtn.classList.toggle('active', squadsOnly);
+    render(currentSort);
+  });
+  const expandAllBtn = document.getElementById('expandAllBtn');
+  expandAllBtn.addEventListener('click', () => {
+    expandAll = !expandAll;
+    if (!expandAll) expandedSquads.clear(); // collapsing all also clears individual opens
+    expandAllBtn.classList.toggle('active', expandAll);
+    expandAllBtn.innerHTML = (expandAll ? '&#9652; Collapse all' : '&#9662; Expand all');
     render(currentSort);
   });
   const votedOnlyBtn = document.getElementById('votedOnlyBtn');
