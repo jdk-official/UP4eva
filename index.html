@@ -278,10 +278,6 @@
         <th class="sqtype">Squad Type</th>
         <th class="seatcolour">Seat Colour</th>
         <th class="t11">T11</th>
-        <th class="selcol">VS Activity</th>
-        <th class="selcol">Buster Day?</th>
-        <th class="num">HQ</th>
-        <th class="num">Prof.</th>
         <th class="num season">Season Rank</th>
         <th class="num season">Season Score</th>
       </tr>
@@ -425,9 +421,9 @@
   // Long-answer survey columns render as dropdowns in edit mode, colour-coded
   // chips when locked. Tones: good=green, flex=blue, mid=amber, low=grey.
   const SELECT_COLS = [
-    { key: 'vsActivity', cls: 'vsact',  opts: ['7.2m daily', 'Whatever the alliance needs', 'When I have time'],
+    { key: 'vsActivity', cls: 'vsact',  label: 'VS Activity', opts: ['7.2m daily', 'Whatever the alliance needs', 'When I have time'],
       tones: { '7.2m daily': 'good', 'Whatever the alliance needs': 'flex', 'When I have time': 'mid' } },
-    { key: 'busterDay',  cls: 'buster', opts: ['Super Active', 'Sorry, family day', '50/50'],
+    { key: 'busterDay',  cls: 'buster', label: 'Buster Day?', opts: ['Super Active', 'Sorry, family day', '50/50'],
       tones: { 'Super Active': 'good', '50/50': 'mid', 'Sorry, family day': 'low' } }
   ];
   const SELECT_COL_BY_KEY = Object.fromEntries(SELECT_COLS.map(c => [c.key, c]));
@@ -706,10 +702,9 @@
 
   // Change handler for the selectable survey dropdowns. Edit-gated; reverts if locked.
   async function onSelectChange(sel) {
-    const td = sel.closest('td.selcol');
-    if (!td) return;
-    const key = td.getAttribute('data-key');
-    const m = roster.find(x => x.name === decode(td.getAttribute('data-name')));
+    const key = sel.getAttribute('data-key');
+    if (!key) return;
+    const m = roster.find(x => x.name === decode(sel.getAttribute('data-name')));
     if (!m) return;
     const prev = m[key] == null ? '' : m[key];
     if (!requireEdit()) { sel.value = prev; return; }
@@ -816,21 +811,21 @@
     return SeatEstimator.estimateSeat(m.thp / 1e6, m.squad1 != null ? m.squad1 / 1e6 : null);
   }
 
-  // Build a <td> holding a dropdown for one selectable survey column.
-  function selectCellHtml(m, cfg, safeName) {
+  // Build the inline control for a survey field (dropdown in edit mode,
+  // colour-coded chip when locked). Lives inside the expandable detail strip.
+  function selectControlHtml(m, cfg, safeName) {
     const cur = m[cfg.key] == null ? '' : String(m[cfg.key]);
-    const open = '<td class="selcol ' + cfg.cls + '" data-name="' + safeName + '" data-key="' + cfg.key + '">';
     // Read-only: show the chosen answer as a colour-coded chip (no dropdown chrome).
     if (!editMode) {
       const tone = (cfg.tones && cfg.tones[cur]) ? ' tone-' + cfg.tones[cur] : '';
-      return open + (cur ? '<span class="answer-chip' + tone + '">' + escAttr(cur) + '</span>' : '<span class="answer-blank">&mdash;</span>') + '</td>';
+      return cur ? '<span class="answer-chip' + tone + '">' + escAttr(cur) + '</span>' : '<span class="answer-blank">&mdash;</span>';
     }
     // Edit mode: full dropdown.
     let opts = '<option value=""' + (cur === '' ? ' selected' : '') + '>&mdash;</option>';
     cfg.opts.forEach(o => {
       opts += '<option value="' + escAttr(o) + '"' + (cur === o ? ' selected' : '') + '>' + escAttr(o) + '</option>';
     });
-    return open + '<select class="cell-select">' + opts + '</select></td>';
+    return '<select class="cell-select" data-name="' + safeName + '" data-key="' + cfg.key + '">' + opts + '</select>';
   }
 
   function render(sortKey) {
@@ -911,10 +906,6 @@
         '<span class="t11-badge t11-' + t11v + '">' + t11v + '</span></td>';
       const seatColourCell = '<td class="seatcolour editable-seatcolour" data-name="' + safeName + '" title="Tap to cycle seat colour (White / Blue / Purple / Gold)">' +
         (m.seatColour ? '<span class="seat-badge seat-' + m.seatColour + '">' + m.seatColour + '</span>' : '&mdash;') + '</td>';
-      const vsCell = selectCellHtml(m, SELECT_COL_BY_KEY.vsActivity, safeName);
-      const busterCell = selectCellHtml(m, SELECT_COL_BY_KEY.busterDay, safeName);
-      const hqCell = '<td class="num editable" data-name="' + safeName + '" data-field="hqLevel" title="Tap to edit HQ Level">' + (m.hqLevel == null ? '&mdash;' : m.hqLevel) + '</td>';
-      const profCell = '<td class="num editable" data-name="' + safeName + '" data-field="profLevel" title="Tap to edit Professional Level">' + (m.profLevel == null ? '&mdash;' : m.profLevel) + '</td>';
       const rankCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonRank" title="Tap to edit JKs Season Rank">' + (m.seasonRank == null ? '&mdash;' : m.seasonRank) + '</td>';
       const scoreTip = (m.seasonScore != null && m.seasonCG != null)
         ? 'CG ' + m.seasonCG + ' · Cap ' + m.seasonCap + ' · Kills ' + m.seasonKills + ' — tap to edit'
@@ -947,10 +938,6 @@
         typeCell +
         seatColourCell +
         t11Cell +
-        vsCell +
-        busterCell +
-        hqCell +
-        profCell +
         rankCell +
         scoreCell;
       tbody.appendChild(tr);
@@ -969,15 +956,22 @@
         const trackBox = editMode
           ? '<label class="sq-track"><input type="checkbox" class="sq-track-box" data-name="' + safeName + '"' + (m.squadGroup ? ' checked' : '') + '> Track T2/T3</label>'
           : '';
+        // Survey answers + levels (moved out of the main table to keep it compact).
+        const survey = SELECT_COLS.map(cfg =>
+          '<span class="sq-part"><span class="sq-label">' + cfg.label + '</span>' + selectControlHtml(m, cfg, safeName) + '</span>').join('');
+        const lvl = (label, field, val) =>
+          '<span class="sq-part"><span class="sq-label">' + label + '</span>' +
+          '<span class="sq-power" data-name="' + safeName + '" data-field="' + field + '" title="Tap to edit ' + label + '">' + (val == null ? '&mdash;' : val) + '</span></span>';
         const dtr = document.createElement('tr');
         dtr.className = 'squad-detail';
-        dtr.innerHTML = '<td colspan="16"><div class="sq-detail-flex">' + part(2) + part(3) + trackBox + '</div></td>';
+        dtr.innerHTML = '<td colspan="12"><div class="sq-detail-flex">' + part(2) + part(3) + survey +
+          lvl('HQ', 'hqLevel', m.hqLevel) + lvl('Prof.', 'profLevel', m.profLevel) + trackBox + '</div></td>';
         tbody.appendChild(dtr);
       }
     });
 
     if (!visible.length) {
-      tbody.innerHTML = '<tr><td colspan="16" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
     }
 
     // The whole Core cell is the tap target (bigger than the ★ glyph for touch).
@@ -1013,8 +1007,8 @@
       cell.addEventListener('click', () => toggleT11(cell));
     });
 
-    // Long-answer survey dropdowns (VS activity / Buster Day).
-    tbody.querySelectorAll('td.selcol .cell-select').forEach(sel => {
+    // Survey dropdowns (VS activity / Buster Day — inside the detail strips).
+    tbody.querySelectorAll('.cell-select').forEach(sel => {
       sel.addEventListener('change', () => onSelectChange(sel));
     });
 
