@@ -129,10 +129,17 @@
   .cell-select:focus { outline: 2px solid #4f7fc0; }
   body.readonly .cell-select { cursor: not-allowed; }
   .cell-select option { background: #1b2736; color: #dbe6f2; }
-  .cell-select.seatcol-Gray { background: #55657a; color: #f0f4f8; border-color: #6b7d94; }
-  .cell-select.seatcol-Blue { background: #2f6fb0; color: #fff; border-color: #4a86c4; }
-  .cell-select.seatcol-Purple { background: #7a52c4; color: #fff; border-color: #9370d8; }
-  .cell-select.seatcol-Gold { background: #caa62e; color: #26200a; border-color: #e0bd45; }
+  /* Seat Colour — mirrors the seat-estimate badge styling; adds a Gray tier. */
+  td.seatcolour { text-align: center; white-space: nowrap; }
+  thead th.seatcolour { text-align: center; }
+  td.seatcolour.editable-seatcolour { cursor: pointer; }
+  .seat-Gray { background: #8792a3; color: #1b2530; }
+  /* T11 — original badge styling (green Yes / grey No). */
+  .t11-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; }
+  .t11-Yes { background: #2f9e6f; color: #fff; }
+  .t11-No { background: #4a5a6e; color: #c7d2df; }
+  td.t11 { text-align: center; }
+  td.t11.editable-t11 { cursor: pointer; }
   .seat-conf { font-size: 0.65rem; color: #5a6a7d; margin-top: 2px; }
   .stat .val .seat-badge { font-size: 0.8rem; margin-right: 2px; }
   .seat-na { font-size: 0.72rem; color: #7e90a6; font-weight: 600; }
@@ -280,21 +287,20 @@
       <tr>
         <th>#</th>
         <th>Commander</th>
+        <th class="core">Core</th>
+        <th class="vote">Voted Yes</th>
         <th class="num">THP</th>
         <th class="num">Kills</th>
         <th class="num">Squad 1</th>
         <th class="sqtype">Squad Type</th>
-        <th class="selcol">T11</th>
+        <th class="seatcolour">Seat Colour</th>
+        <th class="t11">T11</th>
+        <th class="selcol">How active are you in VS?</th>
+        <th class="selcol">Buster Day?</th>
         <th class="num">HQ Level</th>
         <th class="num">Prof. Level</th>
         <th class="num">JKs Season Rank</th>
         <th class="num">JKs Season Score</th>
-        <th class="seat">Seat</th>
-        <th class="selcol">Seat Colour</th>
-        <th class="core">Core</th>
-        <th class="vote">Voted Yes</th>
-        <th class="selcol">How active are you in VS?</th>
-        <th class="selcol">Buster Day?</th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
@@ -431,12 +437,12 @@
   const fmtMil = mil => (Math.round(mil * 100) / 100) + 'M';
   const SQUAD_TYPE_ICON = { Tank: '🛡️', Air: '✈️', Missile: '🚀' };
   const SQUAD_TYPE_CYCLE = [null, 'Tank', 'Air', 'Missile']; // tap cycles through these
-  // Selectable survey columns: each cell is a dropdown of these options (blank = —).
+  // Seat Colour is a tap-to-cycle badge (styled like the seat estimate).
+  const SEAT_COLOUR_CYCLE = [null, 'Gray', 'Blue', 'Purple', 'Gold'];
+  // Long-answer survey columns render as dropdowns (blank = —).
   const SELECT_COLS = [
-    { key: 'seatColour', cls: 'seatcol', tint: true, opts: ['Gray', 'Blue', 'Purple', 'Gold'] },
-    { key: 't11',        cls: 't11sel',                opts: ['Yes', 'No'] },
-    { key: 'vsActivity', cls: 'vsact',                 opts: ['7.2m daily', 'Whatever the alliance needs', 'When I have time'] },
-    { key: 'busterDay',  cls: 'buster',                opts: ['Super Active', 'Sorry, family day', '50/50'] }
+    { key: 'vsActivity', cls: 'vsact',  opts: ['7.2m daily', 'Whatever the alliance needs', 'When I have time'] },
+    { key: 'busterDay',  cls: 'buster', opts: ['Super Active', 'Sorry, family day', '50/50'] }
   ];
   const SELECT_COL_BY_KEY = Object.fromEntries(SELECT_COLS.map(c => [c.key, c]));
   const norm = s => (s || '').toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
@@ -660,6 +666,32 @@
     await saveState();
   }
 
+  // Tap-to-cycle a member's seat colour: null → Gray → Blue → Purple → Gold → null.
+  async function cycleSeatColour(cell) {
+    if (!requireEdit()) return;
+    const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
+    if (!m) return;
+    const cur = m.seatColour == null ? null : m.seatColour;
+    const i = SEAT_COLOUR_CYCLE.indexOf(cur);
+    const next = SEAT_COLOUR_CYCLE[(i + 1) % SEAT_COLOUR_CYCLE.length];
+    if (next == null) delete m.seatColour; else m.seatColour = next;
+    m.updated = Date.now();
+    render(currentSort);
+    await saveState();
+  }
+
+  // Tap-to-toggle a member's T11 flag: No ⇄ Yes.
+  async function toggleT11(cell) {
+    if (!requireEdit()) return;
+    const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
+    if (!m) return;
+    const cur = (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No';
+    m.t11 = cur === 'Yes' ? 'No' : 'Yes';
+    m.updated = Date.now();
+    render(currentSort);
+    await saveState();
+  }
+
   // Change handler for the selectable survey dropdowns. Edit-gated; reverts if locked.
   async function onSelectChange(sel) {
     const td = sel.closest('td.selcol');
@@ -856,8 +888,11 @@
       const squadCell = '<td class="num editable squad1' + (m.squad1 == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="squad1" title="Tap to edit Squad 1">' + (m.squad1 == null ? 'TBC' : fmtMil(m.squad1 / 1e6)) + '</td>';
       const typeCell = '<td class="sqtype editable-type" data-name="' + safeName + '" title="Tap to cycle squad type (Tank / Air / Missile)">' +
         (m.squadType ? '<span class="sqtype-badge sqtype-' + m.squadType + '">' + SQUAD_TYPE_ICON[m.squadType] + ' ' + m.squadType + '</span>' : '&mdash;') + '</td>';
-      const t11Cell = selectCellHtml(m, SELECT_COL_BY_KEY.t11, safeName);
-      const seatColourCell = selectCellHtml(m, SELECT_COL_BY_KEY.seatColour, safeName);
+      const t11v = (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No';
+      const t11Cell = '<td class="t11 editable-t11" data-name="' + safeName + '" title="Tap to toggle T11 (Yes / No)">' +
+        '<span class="t11-badge t11-' + t11v + '">' + t11v + '</span></td>';
+      const seatColourCell = '<td class="seatcolour editable-seatcolour" data-name="' + safeName + '" title="Tap to cycle seat colour (Gray / Blue / Purple / Gold)">' +
+        (m.seatColour ? '<span class="seat-badge seat-' + m.seatColour + '">' + m.seatColour + '</span>' : '&mdash;') + '</td>';
       const vsCell = selectCellHtml(m, SELECT_COL_BY_KEY.vsActivity, safeName);
       const busterCell = selectCellHtml(m, SELECT_COL_BY_KEY.busterDay, safeName);
       const hqCell = '<td class="num editable" data-name="' + safeName + '" data-field="hqLevel" title="Tap to edit HQ Level">' + (m.hqLevel == null ? '&mdash;' : m.hqLevel) + '</td>';
@@ -867,12 +902,6 @@
         ? 'CG ' + m.seasonCG + ' · Cap ' + m.seasonCap + ' · Kills ' + m.seasonKills + ' — tap to edit'
         : 'Tap to edit JKs Season Score';
       const scoreCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonScore" title="' + escAttr(scoreTip) + '">' + (m.seasonScore == null ? '&mdash;' : m.seasonScore) + '</td>';
-      const est = seatOf(m);
-      const seatCell = est
-        ? '<td class="seat" title="' + escAttr(est.explanation + (est.flags.length ? ' · Flags: ' + est.flags.join(', ') : '')) + '">' +
-            '<span class="seat-badge seat-' + est.colour + '">' + est.role + '</span>' +
-            '<div class="seat-conf">' + est.confidence + '</div></td>'
-        : '<td class="seat tbc">&mdash;</td>';
       const on = core.has(m.name) ? 'on' : '';
       const votedOn = votedYes.has(m.name) ? 'on' : '';
       const nameCell = '<td class="name" data-name="' + safeName + '">' +
@@ -888,26 +917,25 @@
       tr.innerHTML =
         '<td>' + (rank + 1) + '</td>' +
         nameCell +
+        '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>' +
+        '<td class="vote"><span class="vote-mark ' + votedOn + '" data-name="' + safeName + '">✔</span></td>' +
         thpCell +
         '<td class="num">' + fmtMil(Number(m.kills) || 0) + '</td>' +
         squadCell +
         typeCell +
+        seatColourCell +
         t11Cell +
+        vsCell +
+        busterCell +
         hqCell +
         profCell +
         rankCell +
-        scoreCell +
-        seatCell +
-        seatColourCell +
-        '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>' +
-        '<td class="vote"><span class="vote-mark ' + votedOn + '" data-name="' + safeName + '">✔</span></td>' +
-        vsCell +
-        busterCell;
+        scoreCell;
       tbody.appendChild(tr);
     });
 
     if (!visible.length) {
-      tbody.innerHTML = '<tr><td colspan="17" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="16" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
     }
 
     // The whole Core cell is the tap target (bigger than the ★ glyph for touch).
@@ -933,7 +961,17 @@
       cell.addEventListener('click', () => cycleSquadType(cell));
     });
 
-    // Selectable survey columns (Seat Colour / T11 / VS Activity / Buster Day).
+    // Seat Colour cell — tap cycles null → Gray → Blue → Purple → Gold (edit mode only).
+    tbody.querySelectorAll('td.seatcolour').forEach(cell => {
+      cell.addEventListener('click', () => cycleSeatColour(cell));
+    });
+
+    // T11 cell — tap toggles No ⇄ Yes (edit mode only).
+    tbody.querySelectorAll('td.t11').forEach(cell => {
+      cell.addEventListener('click', () => toggleT11(cell));
+    });
+
+    // Long-answer survey dropdowns (VS activity / Buster Day).
     tbody.querySelectorAll('td.selcol .cell-select').forEach(sel => {
       sel.addEventListener('change', () => onSelectChange(sel));
     });
