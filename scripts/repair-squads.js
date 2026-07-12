@@ -17,6 +17,7 @@ const FIXES = {
   paghgroen:     { squad2: 44000000, squad2Type: 'Air',  squad3: 38000000, squad3Type: 'Tank' },
   nurkian:       { squad2: 36000000, squad2Type: 'Air',  squad3: 34300000, squad3Type: 'Missile', squad1: 46700000 },
   phoenixwick:   { squad2: 38170000, squad2Type: 'Tank', squad3: 35830000, squad3Type: 'Air' },
+  deanogotti:    { squad2: 41790000, squad2Type: 'Air',  squad3: 38890000, squad3Type: 'Missile' }, // "Big D"
   mrbirb:        { kills: 13.3 } // keep his UI-entered squad2/squad3 values; types unknown
 };
 
