@@ -124,11 +124,15 @@
   .sqtype-Missile { background: #d2635a; color: #fff; }
   td.sqtype { text-align: center; }
   td.sqtype.editable-type { cursor: pointer; }
-  .t11-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; }
-  .t11-Yes { background: #2f9e6f; color: #fff; }
-  .t11-No { background: #4a5a6e; color: #c7d2df; }
-  td.t11 { text-align: center; }
-  td.t11.editable-t11 { cursor: pointer; }
+  td.selcol { text-align: center; white-space: nowrap; }
+  .cell-select { font: inherit; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 8px; background: #26364a; color: #dbe6f2; border: 1px solid #3a4c63; cursor: pointer; max-width: 170px; }
+  .cell-select:focus { outline: 2px solid #4f7fc0; }
+  body.readonly .cell-select { cursor: not-allowed; }
+  .cell-select option { background: #1b2736; color: #dbe6f2; }
+  .cell-select.seatcol-Gray { background: #55657a; color: #f0f4f8; border-color: #6b7d94; }
+  .cell-select.seatcol-Blue { background: #2f6fb0; color: #fff; border-color: #4a86c4; }
+  .cell-select.seatcol-Purple { background: #7a52c4; color: #fff; border-color: #9370d8; }
+  .cell-select.seatcol-Gold { background: #caa62e; color: #26200a; border-color: #e0bd45; }
   .seat-conf { font-size: 0.65rem; color: #5a6a7d; margin-top: 2px; }
   .stat .val .seat-badge { font-size: 0.8rem; margin-right: 2px; }
   .seat-na { font-size: 0.72rem; color: #7e90a6; font-weight: 600; }
@@ -280,14 +284,17 @@
         <th class="num">Kills</th>
         <th class="num">Squad 1</th>
         <th class="sqtype">Squad Type</th>
-        <th class="t11">T11</th>
+        <th class="selcol">T11</th>
         <th class="num">HQ Level</th>
         <th class="num">Prof. Level</th>
         <th class="num">JKs Season Rank</th>
         <th class="num">JKs Season Score</th>
         <th class="seat">Seat</th>
+        <th class="selcol">Seat Colour</th>
         <th class="core">Core</th>
         <th class="vote">Voted Yes</th>
+        <th class="selcol">How active are you in VS?</th>
+        <th class="selcol">Buster Day?</th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
@@ -424,6 +431,14 @@
   const fmtMil = mil => (Math.round(mil * 100) / 100) + 'M';
   const SQUAD_TYPE_ICON = { Tank: '🛡️', Air: '✈️', Missile: '🚀' };
   const SQUAD_TYPE_CYCLE = [null, 'Tank', 'Air', 'Missile']; // tap cycles through these
+  // Selectable survey columns: each cell is a dropdown of these options (blank = —).
+  const SELECT_COLS = [
+    { key: 'seatColour', cls: 'seatcol', tint: true, opts: ['Gray', 'Blue', 'Purple', 'Gold'] },
+    { key: 't11',        cls: 't11sel',                opts: ['Yes', 'No'] },
+    { key: 'vsActivity', cls: 'vsact',                 opts: ['7.2m daily', 'Whatever the alliance needs', 'When I have time'] },
+    { key: 'busterDay',  cls: 'buster',                opts: ['Super Active', 'Sorry, family day', '50/50'] }
+  ];
+  const SELECT_COL_BY_KEY = Object.fromEntries(SELECT_COLS.map(c => [c.key, c]));
   const norm = s => (s || '').toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
   const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   const decode = s => (s || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
@@ -645,13 +660,17 @@
     await saveState();
   }
 
-  // Tap-to-toggle a member's T11 flag: No ⇄ Yes.
-  async function toggleT11(cell) {
-    if (!requireEdit()) return;
-    const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
+  // Change handler for the selectable survey dropdowns. Edit-gated; reverts if locked.
+  async function onSelectChange(sel) {
+    const td = sel.closest('td.selcol');
+    if (!td) return;
+    const key = td.getAttribute('data-key');
+    const m = roster.find(x => x.name === decode(td.getAttribute('data-name')));
     if (!m) return;
-    const cur = (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No';
-    m.t11 = cur === 'Yes' ? 'No' : 'Yes';
+    const prev = m[key] == null ? '' : m[key];
+    if (!requireEdit()) { sel.value = prev; return; }
+    const val = sel.value;
+    if (val === '') delete m[key]; else m[key] = val;
     m.updated = Date.now();
     render(currentSort);
     await saveState();
@@ -753,6 +772,18 @@
     return SeatEstimator.estimateSeat(m.thp / 1e6, m.squad1 != null ? m.squad1 / 1e6 : null);
   }
 
+  // Build a <td> holding a dropdown for one selectable survey column.
+  function selectCellHtml(m, cfg, safeName) {
+    const cur = m[cfg.key] == null ? '' : String(m[cfg.key]);
+    let opts = '<option value=""' + (cur === '' ? ' selected' : '') + '>&mdash;</option>';
+    cfg.opts.forEach(o => {
+      opts += '<option value="' + escAttr(o) + '"' + (cur === o ? ' selected' : '') + '>' + escAttr(o) + '</option>';
+    });
+    const tintCls = (cfg.tint && cur) ? ' ' + cfg.cls + '-' + cur : '';
+    return '<td class="selcol ' + cfg.cls + '" data-name="' + safeName + '" data-key="' + cfg.key + '">' +
+      '<select class="cell-select' + tintCls + '">' + opts + '</select></td>';
+  }
+
   function render(sortKey) {
     currentSort = sortKey;
     const sorted = [...roster].sort((a, b) => {
@@ -825,9 +856,10 @@
       const squadCell = '<td class="num editable squad1' + (m.squad1 == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="squad1" title="Tap to edit Squad 1">' + (m.squad1 == null ? 'TBC' : fmtMil(m.squad1 / 1e6)) + '</td>';
       const typeCell = '<td class="sqtype editable-type" data-name="' + safeName + '" title="Tap to cycle squad type (Tank / Air / Missile)">' +
         (m.squadType ? '<span class="sqtype-badge sqtype-' + m.squadType + '">' + SQUAD_TYPE_ICON[m.squadType] + ' ' + m.squadType + '</span>' : '&mdash;') + '</td>';
-      const t11v = (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No';
-      const t11Cell = '<td class="t11 editable-t11" data-name="' + safeName + '" title="Tap to toggle T11 (Yes / No)">' +
-        '<span class="t11-badge t11-' + t11v + '">' + t11v + '</span></td>';
+      const t11Cell = selectCellHtml(m, SELECT_COL_BY_KEY.t11, safeName);
+      const seatColourCell = selectCellHtml(m, SELECT_COL_BY_KEY.seatColour, safeName);
+      const vsCell = selectCellHtml(m, SELECT_COL_BY_KEY.vsActivity, safeName);
+      const busterCell = selectCellHtml(m, SELECT_COL_BY_KEY.busterDay, safeName);
       const hqCell = '<td class="num editable" data-name="' + safeName + '" data-field="hqLevel" title="Tap to edit HQ Level">' + (m.hqLevel == null ? '&mdash;' : m.hqLevel) + '</td>';
       const profCell = '<td class="num editable" data-name="' + safeName + '" data-field="profLevel" title="Tap to edit Professional Level">' + (m.profLevel == null ? '&mdash;' : m.profLevel) + '</td>';
       const rankCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonRank" title="Tap to edit JKs Season Rank">' + (m.seasonRank == null ? '&mdash;' : m.seasonRank) + '</td>';
@@ -866,13 +898,16 @@
         rankCell +
         scoreCell +
         seatCell +
+        seatColourCell +
         '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>' +
-        '<td class="vote"><span class="vote-mark ' + votedOn + '" data-name="' + safeName + '">✔</span></td>';
+        '<td class="vote"><span class="vote-mark ' + votedOn + '" data-name="' + safeName + '">✔</span></td>' +
+        vsCell +
+        busterCell;
       tbody.appendChild(tr);
     });
 
     if (!visible.length) {
-      tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="17" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
     }
 
     // The whole Core cell is the tap target (bigger than the ★ glyph for touch).
@@ -898,9 +933,9 @@
       cell.addEventListener('click', () => cycleSquadType(cell));
     });
 
-    // T11 cell — tap toggles No ⇄ Yes (edit mode only).
-    tbody.querySelectorAll('td.t11').forEach(cell => {
-      cell.addEventListener('click', () => toggleT11(cell));
+    // Selectable survey columns (Seat Colour / T11 / VS Activity / Buster Day).
+    tbody.querySelectorAll('td.selcol .cell-select').forEach(sel => {
+      sel.addEventListener('change', () => onSelectChange(sel));
     });
 
     // Tap-to-edit THP / Squad 1.
@@ -945,6 +980,7 @@
       return b.thp - a.thp;
     });
     const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type', 'T11',
+      'Seat Colour (declared)', 'How active are you in VS?', 'Buster Day?',
       'HQ Level', 'Professional Level',
       'JKs Season Rank', 'JKs Season Score', 'CG norm', 'Cap norm', 'Kills norm',
       'Seat colour', 'Role', 'Confidence', 'Squad/THP ratio', 'Squad 1 estimated', 'Flags', 'Explanation'];
@@ -962,6 +998,9 @@
         m.squad1 == null ? '' : m.squad1,
         m.squadType == null ? '' : m.squadType,
         (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No',
+        m.seatColour == null ? '' : m.seatColour,
+        m.vsActivity == null ? '' : m.vsActivity,
+        m.busterDay == null ? '' : m.busterDay,
         m.hqLevel == null ? '' : m.hqLevel,
         m.profLevel == null ? '' : m.profLevel,
         m.seasonRank == null ? '' : m.seasonRank,
