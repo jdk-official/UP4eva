@@ -149,6 +149,19 @@
   .t11-No { background: #4a5a6e; color: #c7d2df; }
   td.t11 { text-align: center; }
   td.t11.editable-t11 { cursor: pointer; }
+  /* Squad 2/3 tracking — expander chevron, group marker, detail strip. */
+  .sq-exp { cursor: pointer; user-select: none; display: inline-block; font-size: 0.75rem; color: #47566a; margin-right: 4px; transition: transform .12s; }
+  .sq-exp.open { transform: rotate(90deg); }
+  .sq-flag { font-size: 0.75rem; }
+  tr.squad-detail td { background: #b8c6d8; border-radius: 8px; padding: 7px 10px 7px 44px; font-size: 0.8rem; }
+  .sq-detail-flex { display: flex; gap: 8px 22px; align-items: center; flex-wrap: wrap; }
+  .sq-part { display: inline-flex; gap: 7px; align-items: center; }
+  .sq-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.4px; color: #47566a; font-weight: 800; }
+  .sq-power { cursor: pointer; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .sq-power.tbc { color: var(--tbc); font-style: italic; }
+  .sq-type { cursor: pointer; }
+  .sq-track { display: inline-flex; gap: 5px; align-items: center; font-size: 0.72rem; font-weight: 700; color: #47566a; cursor: pointer; margin-left: auto; }
+  body.readonly .sq-power, body.readonly .sq-type { cursor: default; }
   .seat-conf { font-size: 0.65rem; color: #5a6a7d; margin-top: 2px; }
   .stat .val .seat-badge { font-size: 0.8rem; margin-right: 2px; }
   .seat-na { font-size: 0.72rem; color: #8fa3b8; font-weight: 600; }
@@ -246,6 +259,7 @@
     <select id="allianceFilter" title="Filter by alliance"></select>
     <button id="coreOnlyBtn" class="toggle" title="Show core members only">&#9733; Core only</button>
     <button id="votedOnlyBtn" class="toggle" title="Show 'Voted Yes' members only">&#10004; Voted only</button>
+    <button id="squadsOnlyBtn" class="toggle" title="Show only members tracked for Squad 2/3">&#9876;&#65039; T2/3 group</button>
     <span class="result-count" id="resultCount"></span>
   </div>
 
@@ -448,6 +462,8 @@
   let searchTerm = '';
   let coreOnly = false;
   let votedOnly = true;   // default view: show only 'Voted Yes' members
+  let squadsOnly = false; // toolbar filter: show only the hand-picked T2/T3 group
+  const expandedSquads = new Set(); // names with their Squad 2/3 strip open (session-only)
   let serverFilter = '';
   let allianceFilter = '';
   let editMode = false;   // page is view-only until unlocked with the password
@@ -588,10 +604,10 @@
     if (cell.querySelector('input')) return;
     const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
     if (!m) return;
-    const isPower = field === 'squad1';
+    const isPower = field === 'squad1' || field === 'squad2' || field === 'squad3';
     const cur = m[field] == null ? '' : (isPower ? fmtM(m[field]) : String(m[field]));
     const ph = field === 'thp' ? 'e.g. 175.8M or 175800000'
-      : field === 'squad1' ? 'e.g. 52.8M'
+      : isPower ? 'e.g. 52.8M'
       : field === 'seasonRank' ? 'e.g. 91'
       : field === 'seasonScore' ? 'e.g. 132'
       : field === 'hqLevel' ? 'e.g. 35'
@@ -657,6 +673,31 @@
     if (!m) return;
     const cur = (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No';
     m.t11 = cur === 'Yes' ? 'No' : 'Yes';
+    m.updated = Date.now();
+    render(currentSort);
+    await saveState();
+  }
+
+  // Tap-to-cycle a Squad 2/3 type: null → Tank → Air → Missile → null.
+  async function cycleSquadNType(el) {
+    if (!requireEdit()) return;
+    const m = roster.find(x => x.name === decode(el.getAttribute('data-name')));
+    if (!m) return;
+    const key = el.getAttribute('data-key'); // squad2Type / squad3Type
+    const cur = m[key] == null ? null : m[key];
+    const next = SQUAD_TYPE_CYCLE[(SQUAD_TYPE_CYCLE.indexOf(cur) + 1) % SQUAD_TYPE_CYCLE.length];
+    if (next == null) delete m[key]; else m[key] = next;
+    m.updated = Date.now();
+    render(currentSort);
+    await saveState();
+  }
+
+  // Toggle a member in/out of the hand-picked T2/T3 tracking group.
+  async function toggleSquadGroup(box) {
+    if (!requireEdit()) { box.checked = !box.checked; return; }
+    const m = roster.find(x => x.name === decode(box.getAttribute('data-name')));
+    if (!m) return;
+    if (box.checked) m.squadGroup = true; else delete m.squadGroup;
     m.updated = Date.now();
     render(currentSort);
     await saveState();
@@ -835,10 +876,11 @@
       (!q || m.name.toLowerCase().includes(q)) &&
       (!coreOnly || core.has(m.name)) &&
       (!votedOnly || votedYes.has(m.name)) &&
+      (!squadsOnly || m.squadGroup) &&
       (!serverFilter || svrOf(m) === serverFilter) &&
       (!allianceFilter || allyOf(m) === allianceFilter));
     const rc = document.getElementById('resultCount');
-    if (rc) rc.textContent = (q || coreOnly || votedOnly || serverFilter || allianceFilter)
+    if (rc) rc.textContent = (q || coreOnly || votedOnly || squadsOnly || serverFilter || allianceFilter)
       ? (visible.length + ' of ' + roster.length + ' shown') : '';
 
     // Per-value tag colours (recomputed each render so new values get a colour).
@@ -879,8 +921,14 @@
       const scoreCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonScore" title="' + escAttr(scoreTip) + '">' + (m.seasonScore == null ? '&mdash;' : m.seasonScore) + '</td>';
       const on = core.has(m.name) ? 'on' : '';
       const votedOn = votedYes.has(m.name) ? 'on' : '';
+      // Squad 2/3 expander: everyone sees it for tracked/filled members; edit mode shows it on all rows.
+      const hasSquadInfo = m.squadGroup || m.squad2 != null || m.squad3 != null || m.squad2Type || m.squad3Type;
+      const showExp = editMode || hasSquadInfo;
+      const expOpen = expandedSquads.has(m.name);
       const nameCell = '<td class="name" data-name="' + safeName + '">' +
+        (showExp ? '<span class="sq-exp' + (expOpen ? ' open' : '') + '" data-name="' + safeName + '" title="Squad 2/3 details">&#9656;</span>' : '') +
         '<span class="cmd">' + safeName + '</span>' +
+        (m.squadGroup ? ' <span class="sq-flag" title="Tracked for Squad 2/3">⚔️</span>' : '') +
         (m.notes ? ' <span class="note-flag" title="' + escAttr(m.notes) + '">📝</span>' : '') +
         ' <span class="note-btn" title="Add / edit note">✎</span>' +
         '<div class="meta">' +
@@ -907,6 +955,26 @@
         rankCell +
         scoreCell;
       tbody.appendChild(tr);
+
+      // Expanded Squad 2/3 detail strip, directly under the member's row.
+      if (showExp && expOpen) {
+        const part = n => {
+          const pv = m['squad' + n];
+          const tv = m['squad' + n + 'Type'];
+          return '<span class="sq-part"><span class="sq-label">Squad ' + n + '</span>' +
+            '<span class="sq-power' + (pv == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="squad' + n + '" title="Tap to edit Squad ' + n + ' power">' + (pv == null ? 'TBC' : fmtMil(pv / 1e6)) + '</span>' +
+            '<span class="sq-type" data-name="' + safeName + '" data-key="squad' + n + 'Type" title="Tap to cycle Squad ' + n + ' type">' +
+              (tv ? '<span class="sqtype-badge sqtype-' + tv + '">' + SQUAD_TYPE_ICON[tv] + ' ' + tv + '</span>' : '<span class="answer-blank">&mdash;</span>') +
+            '</span></span>';
+        };
+        const trackBox = editMode
+          ? '<label class="sq-track"><input type="checkbox" class="sq-track-box" data-name="' + safeName + '"' + (m.squadGroup ? ' checked' : '') + '> Track T2/T3</label>'
+          : '';
+        const dtr = document.createElement('tr');
+        dtr.className = 'squad-detail';
+        dtr.innerHTML = '<td colspan="16"><div class="sq-detail-flex">' + part(2) + part(3) + trackBox + '</div></td>';
+        tbody.appendChild(dtr);
+      }
     });
 
     if (!visible.length) {
@@ -951,6 +1019,25 @@
       sel.addEventListener('change', () => onSelectChange(sel));
     });
 
+    // Squad 2/3 expander chevron, power edit, type cycle, group toggle.
+    tbody.querySelectorAll('.sq-exp').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        const n = decode(el.getAttribute('data-name'));
+        if (expandedSquads.has(n)) expandedSquads.delete(n); else expandedSquads.add(n);
+        render(currentSort);
+      });
+    });
+    tbody.querySelectorAll('.sq-power').forEach(el => {
+      el.addEventListener('click', () => editField(el, el.getAttribute('data-field')));
+    });
+    tbody.querySelectorAll('.sq-type').forEach(el => {
+      el.addEventListener('click', () => cycleSquadNType(el));
+    });
+    tbody.querySelectorAll('.sq-track-box').forEach(box => {
+      box.addEventListener('change', () => toggleSquadGroup(box));
+    });
+
     // Tap-to-edit THP / Squad 1.
     tbody.querySelectorAll('td.editable').forEach(cell => {
       cell.addEventListener('click', () => editField(cell, cell.getAttribute('data-field')));
@@ -992,7 +1079,8 @@
       if (b.thp == null) return -1;
       return b.thp - a.thp;
     });
-    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type', 'T11',
+    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type',
+      'Squad 2', 'Squad 2 Type', 'Squad 3', 'Squad 3 Type', 'T2/3 Group', 'T11',
       'Seat Colour (declared)', 'How active are you in VS?', 'Buster Day?',
       'HQ Level', 'Professional Level',
       'JKs Season Rank', 'JKs Season Score', 'CG norm', 'Cap norm', 'Kills norm',
@@ -1010,6 +1098,11 @@
         (Number(m.kills) || 0).toFixed(2),
         m.squad1 == null ? '' : m.squad1,
         m.squadType == null ? '' : m.squadType,
+        m.squad2 == null ? '' : m.squad2,
+        m.squad2Type == null ? '' : m.squad2Type,
+        m.squad3 == null ? '' : m.squad3,
+        m.squad3Type == null ? '' : m.squad3Type,
+        m.squadGroup ? 'Yes' : '',
         (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No',
         m.seatColour == null ? '' : m.seatColour,
         m.vsActivity == null ? '' : m.vsActivity,
@@ -1251,6 +1344,12 @@
   coreOnlyBtn.addEventListener('click', () => {
     coreOnly = !coreOnly;
     coreOnlyBtn.classList.toggle('active', coreOnly);
+    render(currentSort);
+  });
+  const squadsOnlyBtn = document.getElementById('squadsOnlyBtn');
+  squadsOnlyBtn.addEventListener('click', () => {
+    squadsOnly = !squadsOnly;
+    squadsOnlyBtn.classList.toggle('active', squadsOnly);
     render(currentSort);
   });
   const votedOnlyBtn = document.getElementById('votedOnlyBtn');
