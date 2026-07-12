@@ -74,7 +74,7 @@
   table.roster { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
   thead th {
     text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;
-    color: #9fb0c4; padding: 6px 10px; position: sticky; top: 0; background: var(--bg);
+    color: #9fb0c4; padding: 6px 6px; position: sticky; top: 0; background: var(--bg);
   }
   thead th.num { text-align: right; }
   thead th.core { text-align: center; width: 48px; }
@@ -84,7 +84,7 @@
   tbody tr.rank2 { background: var(--silver); }
   tbody tr.rank3 { background: var(--bronze); }
   tbody tr.is-core { box-shadow: inset 3px 0 0 var(--core); }
-  td { padding: 10px; font-size: 0.9rem; font-weight: 600; }
+  td { padding: 10px 6px; font-size: 0.9rem; font-weight: 600; }
   td:first-child { border-radius: 8px 0 0 8px; width: 36px; color: #5a6a7d; }
   td:last-child { border-radius: 0 8px 8px 0; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -125,7 +125,7 @@
   td.sqtype { text-align: center; }
   td.sqtype.editable-type { cursor: pointer; }
   td.selcol { text-align: center; white-space: nowrap; }
-  .cell-select { font: inherit; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 8px; background: #26364a; color: #dbe6f2; border: 1px solid #3a4c63; cursor: pointer; max-width: 170px; }
+  .cell-select { font: inherit; font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 8px; background: #26364a; color: #dbe6f2; border: 1px solid #3a4c63; cursor: pointer; max-width: 140px; }
   .cell-select:focus { outline: 2px solid #4f7fc0; }
   body.readonly .cell-select { cursor: not-allowed; }
   .cell-select option { background: #1b2736; color: #dbe6f2; }
@@ -294,12 +294,12 @@
         <th class="sqtype">Squad Type</th>
         <th class="seatcolour">Seat Colour</th>
         <th class="t11">T11</th>
-        <th class="selcol">How active are you in VS?</th>
+        <th class="selcol">VS Activity</th>
         <th class="selcol">Buster Day?</th>
-        <th class="num">HQ Level</th>
-        <th class="num">Prof. Level</th>
-        <th class="num">JKs Season Rank</th>
-        <th class="num">JKs Season Score</th>
+        <th class="num">HQ</th>
+        <th class="num">Prof.</th>
+        <th class="num">Season Rank</th>
+        <th class="num">Season Score</th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
