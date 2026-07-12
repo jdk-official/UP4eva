@@ -124,6 +124,11 @@
   .sqtype-Missile { background: #d2635a; color: #fff; }
   td.sqtype { text-align: center; }
   td.sqtype.editable-type { cursor: pointer; }
+  .t11-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; }
+  .t11-Yes { background: #2f9e6f; color: #fff; }
+  .t11-No { background: #4a5a6e; color: #c7d2df; }
+  td.t11 { text-align: center; }
+  td.t11.editable-t11 { cursor: pointer; }
   .seat-conf { font-size: 0.65rem; color: #5a6a7d; margin-top: 2px; }
   .stat .val .seat-badge { font-size: 0.8rem; margin-right: 2px; }
   .seat-na { font-size: 0.72rem; color: #7e90a6; font-weight: 600; }
@@ -275,6 +280,7 @@
         <th class="num">Kills</th>
         <th class="num">Squad 1</th>
         <th class="sqtype">Squad Type</th>
+        <th class="t11">T11</th>
         <th class="num">HQ Level</th>
         <th class="num">Prof. Level</th>
         <th class="num">JKs Season Rank</th>
@@ -639,6 +645,18 @@
     await saveState();
   }
 
+  // Tap-to-toggle a member's T11 flag: No ⇄ Yes.
+  async function toggleT11(cell) {
+    if (!requireEdit()) return;
+    const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
+    if (!m) return;
+    const cur = (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No';
+    m.t11 = cur === 'Yes' ? 'No' : 'Yes';
+    m.updated = Date.now();
+    render(currentSort);
+    await saveState();
+  }
+
   // Tap-to-edit a member's free-text note.
   function editNote(cell, name) {
     if (!requireEdit()) return;
@@ -807,6 +825,9 @@
       const squadCell = '<td class="num editable squad1' + (m.squad1 == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="squad1" title="Tap to edit Squad 1">' + (m.squad1 == null ? 'TBC' : fmtMil(m.squad1 / 1e6)) + '</td>';
       const typeCell = '<td class="sqtype editable-type" data-name="' + safeName + '" title="Tap to cycle squad type (Tank / Air / Missile)">' +
         (m.squadType ? '<span class="sqtype-badge sqtype-' + m.squadType + '">' + SQUAD_TYPE_ICON[m.squadType] + ' ' + m.squadType + '</span>' : '&mdash;') + '</td>';
+      const t11v = (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No';
+      const t11Cell = '<td class="t11 editable-t11" data-name="' + safeName + '" title="Tap to toggle T11 (Yes / No)">' +
+        '<span class="t11-badge t11-' + t11v + '">' + t11v + '</span></td>';
       const hqCell = '<td class="num editable" data-name="' + safeName + '" data-field="hqLevel" title="Tap to edit HQ Level">' + (m.hqLevel == null ? '&mdash;' : m.hqLevel) + '</td>';
       const profCell = '<td class="num editable" data-name="' + safeName + '" data-field="profLevel" title="Tap to edit Professional Level">' + (m.profLevel == null ? '&mdash;' : m.profLevel) + '</td>';
       const rankCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonRank" title="Tap to edit JKs Season Rank">' + (m.seasonRank == null ? '&mdash;' : m.seasonRank) + '</td>';
@@ -839,6 +860,7 @@
         '<td class="num">' + fmtMil(Number(m.kills) || 0) + '</td>' +
         squadCell +
         typeCell +
+        t11Cell +
         hqCell +
         profCell +
         rankCell +
@@ -850,7 +872,7 @@
     });
 
     if (!visible.length) {
-      tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
     }
 
     // The whole Core cell is the tap target (bigger than the ★ glyph for touch).
@@ -874,6 +896,11 @@
     // Squad Type cell — tap cycles null → Tank → Air → Missile (edit mode only).
     tbody.querySelectorAll('td.sqtype').forEach(cell => {
       cell.addEventListener('click', () => cycleSquadType(cell));
+    });
+
+    // T11 cell — tap toggles No ⇄ Yes (edit mode only).
+    tbody.querySelectorAll('td.t11').forEach(cell => {
+      cell.addEventListener('click', () => toggleT11(cell));
     });
 
     // Tap-to-edit THP / Squad 1.
@@ -917,7 +944,7 @@
       if (b.thp == null) return -1;
       return b.thp - a.thp;
     });
-    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type',
+    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type', 'T11',
       'HQ Level', 'Professional Level',
       'JKs Season Rank', 'JKs Season Score', 'CG norm', 'Cap norm', 'Kills norm',
       'Seat colour', 'Role', 'Confidence', 'Squad/THP ratio', 'Squad 1 estimated', 'Flags', 'Explanation'];
@@ -934,6 +961,7 @@
         (Number(m.kills) || 0).toFixed(2),
         m.squad1 == null ? '' : m.squad1,
         m.squadType == null ? '' : m.squadType,
+        (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No',
         m.hqLevel == null ? '' : m.hqLevel,
         m.profLevel == null ? '' : m.profLevel,
         m.seasonRank == null ? '' : m.seasonRank,
