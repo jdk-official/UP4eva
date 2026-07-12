@@ -131,6 +131,10 @@
   .cell-select option { background: #1b2736; color: #dbe6f2; }
   /* Read-only display of a survey answer (shown when not in edit mode). */
   .answer-chip { display: inline-block; max-width: 120px; padding: 2px 8px; border-radius: 8px; background: #2b3a4d; color: #dbe6f2; font-size: 0.7rem; font-weight: 700; line-height: 1.25; white-space: normal; }
+  .answer-chip.tone-good { background: #2f9e6f; color: #fff; }
+  .answer-chip.tone-flex { background: #3f7fd1; color: #fff; }
+  .answer-chip.tone-mid  { background: #b8862e; color: #fff; }
+  .answer-chip.tone-low  { background: #4a5a6e; color: #c7d2df; }
   .answer-blank { color: #5a6a7d; }
   /* Seat Colour — mirrors the seat-estimate badge styling; adds a Gray tier. */
   td.seatcolour { text-align: center; white-space: nowrap; }
@@ -441,10 +445,13 @@
   const SQUAD_TYPE_CYCLE = [null, 'Tank', 'Air', 'Missile']; // tap cycles through these
   // Seat Colour is a tap-to-cycle badge (styled like the seat estimate).
   const SEAT_COLOUR_CYCLE = [null, 'White', 'Blue', 'Purple', 'Gold'];
-  // Long-answer survey columns render as dropdowns (blank = —).
+  // Long-answer survey columns render as dropdowns in edit mode, colour-coded
+  // chips when locked. Tones: good=green, flex=blue, mid=amber, low=grey.
   const SELECT_COLS = [
-    { key: 'vsActivity', cls: 'vsact',  opts: ['7.2m daily', 'Whatever the alliance needs', 'When I have time'] },
-    { key: 'busterDay',  cls: 'buster', opts: ['Super Active', 'Sorry, family day', '50/50'] }
+    { key: 'vsActivity', cls: 'vsact',  opts: ['7.2m daily', 'Whatever the alliance needs', 'When I have time'],
+      tones: { '7.2m daily': 'good', 'Whatever the alliance needs': 'flex', 'When I have time': 'mid' } },
+    { key: 'busterDay',  cls: 'buster', opts: ['Super Active', 'Sorry, family day', '50/50'],
+      tones: { 'Super Active': 'good', '50/50': 'mid', 'Sorry, family day': 'low' } }
   ];
   const SELECT_COL_BY_KEY = Object.fromEntries(SELECT_COLS.map(c => [c.key, c]));
   const norm = s => (s || '').toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
@@ -810,9 +817,10 @@
   function selectCellHtml(m, cfg, safeName) {
     const cur = m[cfg.key] == null ? '' : String(m[cfg.key]);
     const open = '<td class="selcol ' + cfg.cls + '" data-name="' + safeName + '" data-key="' + cfg.key + '">';
-    // Read-only: show the chosen answer as a plain chip (no dropdown chrome).
+    // Read-only: show the chosen answer as a colour-coded chip (no dropdown chrome).
     if (!editMode) {
-      return open + (cur ? '<span class="answer-chip">' + escAttr(cur) + '</span>' : '<span class="answer-blank">&mdash;</span>') + '</td>';
+      const tone = (cfg.tones && cfg.tones[cur]) ? ' tone-' + cfg.tones[cur] : '';
+      return open + (cur ? '<span class="answer-chip' + tone + '">' + escAttr(cur) + '</span>' : '<span class="answer-blank">&mdash;</span>') + '</td>';
     }
     // Edit mode: full dropdown.
     let opts = '<option value=""' + (cur === '' ? ' selected' : '') + '>&mdash;</option>';
