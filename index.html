@@ -118,6 +118,12 @@
   .seat-Blue { background: #3f7fd1; color: #fff; }
   .seat-Purple { background: #8a63d2; color: #fff; }
   .seat-Gold { background: var(--gold); color: #3a2c08; }
+  .sqtype-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; white-space: nowrap; }
+  .sqtype-Tank { background: #3f7fd1; color: #fff; }
+  .sqtype-Air { background: #2f9e6f; color: #fff; }
+  .sqtype-Missile { background: #d2635a; color: #fff; }
+  td.sqtype { text-align: center; }
+  td.sqtype.editable-type { cursor: pointer; }
   .seat-conf { font-size: 0.65rem; color: #5a6a7d; margin-top: 2px; }
   .stat .val .seat-badge { font-size: 0.8rem; margin-right: 2px; }
   .seat-na { font-size: 0.72rem; color: #7e90a6; font-weight: 600; }
@@ -268,6 +274,7 @@
         <th class="num">THP</th>
         <th class="num">Kills</th>
         <th class="num">Squad 1</th>
+        <th class="sqtype">Squad Type</th>
         <th class="num">HQ Level</th>
         <th class="num">Prof. Level</th>
         <th class="num">JKs Season Rank</th>
@@ -409,6 +416,8 @@
   // Consistent millions display for THP / Kills / Squad 1 (input already in
   // millions). Up to 2 decimals, trailing zeros trimmed: 175.78M, 44.6M, 0.05M.
   const fmtMil = mil => (Math.round(mil * 100) / 100) + 'M';
+  const SQUAD_TYPE_ICON = { Tank: '🛡️', Air: '✈️', Missile: '🚀' };
+  const SQUAD_TYPE_CYCLE = [null, 'Tank', 'Air', 'Missile']; // tap cycles through these
   const norm = s => (s || '').toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
   const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   const decode = s => (s || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
@@ -616,6 +625,20 @@
     input.addEventListener('blur', () => commit(true));
   }
 
+  // Tap-to-cycle a member's squad type: null → Tank → Air → Missile → null.
+  async function cycleSquadType(cell) {
+    if (!requireEdit()) return;
+    const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
+    if (!m) return;
+    const cur = m.squadType == null ? null : m.squadType;
+    const i = SQUAD_TYPE_CYCLE.indexOf(cur);
+    const next = SQUAD_TYPE_CYCLE[(i + 1) % SQUAD_TYPE_CYCLE.length];
+    if (next == null) delete m.squadType; else m.squadType = next;
+    m.updated = Date.now();
+    render(currentSort);
+    await saveState();
+  }
+
   // Tap-to-edit a member's free-text note.
   function editNote(cell, name) {
     if (!requireEdit()) return;
@@ -782,6 +805,8 @@
       const safeName = m.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
       const thpCell = '<td class="num editable thp' + (m.thp == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="thp" title="Tap to edit THP">' + (m.thp == null ? 'TBC' : fmtMil(m.thp / 1e6)) + '</td>';
       const squadCell = '<td class="num editable squad1' + (m.squad1 == null ? ' tbc' : '') + '" data-name="' + safeName + '" data-field="squad1" title="Tap to edit Squad 1">' + (m.squad1 == null ? 'TBC' : fmtMil(m.squad1 / 1e6)) + '</td>';
+      const typeCell = '<td class="sqtype editable-type" data-name="' + safeName + '" title="Tap to cycle squad type (Tank / Air / Missile)">' +
+        (m.squadType ? '<span class="sqtype-badge sqtype-' + m.squadType + '">' + SQUAD_TYPE_ICON[m.squadType] + ' ' + m.squadType + '</span>' : '&mdash;') + '</td>';
       const hqCell = '<td class="num editable" data-name="' + safeName + '" data-field="hqLevel" title="Tap to edit HQ Level">' + (m.hqLevel == null ? '&mdash;' : m.hqLevel) + '</td>';
       const profCell = '<td class="num editable" data-name="' + safeName + '" data-field="profLevel" title="Tap to edit Professional Level">' + (m.profLevel == null ? '&mdash;' : m.profLevel) + '</td>';
       const rankCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonRank" title="Tap to edit JKs Season Rank">' + (m.seasonRank == null ? '&mdash;' : m.seasonRank) + '</td>';
@@ -813,6 +838,7 @@
         thpCell +
         '<td class="num">' + fmtMil(Number(m.kills) || 0) + '</td>' +
         squadCell +
+        typeCell +
         hqCell +
         profCell +
         rankCell +
@@ -824,7 +850,7 @@
     });
 
     if (!visible.length) {
-      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
     }
 
     // The whole Core cell is the tap target (bigger than the ★ glyph for touch).
@@ -843,6 +869,11 @@
         if (!s) return;
         toggleVotedYes(decode(s.getAttribute('data-name')));
       });
+    });
+
+    // Squad Type cell — tap cycles null → Tank → Air → Missile (edit mode only).
+    tbody.querySelectorAll('td.sqtype').forEach(cell => {
+      cell.addEventListener('click', () => cycleSquadType(cell));
     });
 
     // Tap-to-edit THP / Squad 1.
@@ -886,7 +917,7 @@
       if (b.thp == null) return -1;
       return b.thp - a.thp;
     });
-    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1',
+    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type',
       'HQ Level', 'Professional Level',
       'JKs Season Rank', 'JKs Season Score', 'CG norm', 'Cap norm', 'Kills norm',
       'Seat colour', 'Role', 'Confidence', 'Squad/THP ratio', 'Squad 1 estimated', 'Flags', 'Explanation'];
@@ -902,6 +933,7 @@
         m.thp == null ? '' : m.thp,
         (Number(m.kills) || 0).toFixed(2),
         m.squad1 == null ? '' : m.squad1,
+        m.squadType == null ? '' : m.squadType,
         m.hqLevel == null ? '' : m.hqLevel,
         m.profLevel == null ? '' : m.profLevel,
         m.seasonRank == null ? '' : m.seasonRank,
