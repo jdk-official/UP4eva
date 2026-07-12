@@ -133,7 +133,6 @@
   td.seatcolour { text-align: center; white-space: nowrap; }
   thead th.seatcolour { text-align: center; }
   td.seatcolour.editable-seatcolour { cursor: pointer; }
-  .seat-Gray { background: #8792a3; color: #1b2530; }
   /* T11 — original badge styling (green Yes / grey No). */
   .t11-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; }
   .t11-Yes { background: #2f9e6f; color: #fff; }
@@ -438,7 +437,7 @@
   const SQUAD_TYPE_ICON = { Tank: '🛡️', Air: '✈️', Missile: '🚀' };
   const SQUAD_TYPE_CYCLE = [null, 'Tank', 'Air', 'Missile']; // tap cycles through these
   // Seat Colour is a tap-to-cycle badge (styled like the seat estimate).
-  const SEAT_COLOUR_CYCLE = [null, 'Gray', 'Blue', 'Purple', 'Gold'];
+  const SEAT_COLOUR_CYCLE = [null, 'White', 'Blue', 'Purple', 'Gold'];
   // Long-answer survey columns render as dropdowns (blank = —).
   const SELECT_COLS = [
     { key: 'vsActivity', cls: 'vsact',  opts: ['7.2m daily', 'Whatever the alliance needs', 'When I have time'] },
@@ -666,7 +665,7 @@
     await saveState();
   }
 
-  // Tap-to-cycle a member's seat colour: null → Gray → Blue → Purple → Gold → null.
+  // Tap-to-cycle a member's seat colour: null → White → Blue → Purple → Gold → null.
   async function cycleSeatColour(cell) {
     if (!requireEdit()) return;
     const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
@@ -891,7 +890,7 @@
       const t11v = (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No';
       const t11Cell = '<td class="t11 editable-t11" data-name="' + safeName + '" title="Tap to toggle T11 (Yes / No)">' +
         '<span class="t11-badge t11-' + t11v + '">' + t11v + '</span></td>';
-      const seatColourCell = '<td class="seatcolour editable-seatcolour" data-name="' + safeName + '" title="Tap to cycle seat colour (Gray / Blue / Purple / Gold)">' +
+      const seatColourCell = '<td class="seatcolour editable-seatcolour" data-name="' + safeName + '" title="Tap to cycle seat colour (White / Blue / Purple / Gold)">' +
         (m.seatColour ? '<span class="seat-badge seat-' + m.seatColour + '">' + m.seatColour + '</span>' : '&mdash;') + '</td>';
       const vsCell = selectCellHtml(m, SELECT_COL_BY_KEY.vsActivity, safeName);
       const busterCell = selectCellHtml(m, SELECT_COL_BY_KEY.busterDay, safeName);
