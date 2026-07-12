@@ -150,8 +150,9 @@
   td.t11 { text-align: center; }
   td.t11.editable-t11 { cursor: pointer; }
   /* Squad 2/3 tracking — expander chevron, group marker, detail strip. */
-  .sq-exp { cursor: pointer; user-select: none; display: inline-block; font-size: 0.75rem; color: #47566a; margin-right: 4px; transition: transform .12s; }
-  .sq-exp.open { transform: rotate(90deg); }
+  .sq-exp { cursor: pointer; user-select: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; background: #3b4a63; color: #dbe6f2; font-size: 0.8rem; margin-right: 6px; vertical-align: middle; transition: transform .12s, background .12s; }
+  .sq-exp:hover { background: #52688a; }
+  .sq-exp.open { transform: rotate(90deg); background: var(--accent); color: #10220a; }
   .sq-flag { font-size: 0.75rem; }
   tr.squad-detail td { background: #b8c6d8; border-radius: 8px; padding: 7px 10px 7px 44px; font-size: 0.8rem; }
   .sq-detail-flex { display: flex; gap: 8px 22px; align-items: center; flex-wrap: wrap; }
