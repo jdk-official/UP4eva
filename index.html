@@ -921,12 +921,10 @@
       const scoreCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonScore" title="' + escAttr(scoreTip) + '">' + (m.seasonScore == null ? '&mdash;' : m.seasonScore) + '</td>';
       const on = core.has(m.name) ? 'on' : '';
       const votedOn = votedYes.has(m.name) ? 'on' : '';
-      // Squad 2/3 expander: everyone sees it for tracked/filled members; edit mode shows it on all rows.
-      const hasSquadInfo = m.squadGroup || m.squad2 != null || m.squad3 != null || m.squad2Type || m.squad3Type;
-      const showExp = editMode || hasSquadInfo;
+      // Squad 2/3 expander: always visible; editing inside the strip stays gated.
       const expOpen = expandedSquads.has(m.name);
       const nameCell = '<td class="name" data-name="' + safeName + '">' +
-        (showExp ? '<span class="sq-exp' + (expOpen ? ' open' : '') + '" data-name="' + safeName + '" title="Squad 2/3 details">&#9656;</span>' : '') +
+        '<span class="sq-exp' + (expOpen ? ' open' : '') + '" data-name="' + safeName + '" title="Squad 2/3 details">&#9656;</span>' +
         '<span class="cmd">' + safeName + '</span>' +
         (m.squadGroup ? ' <span class="sq-flag" title="Tracked for Squad 2/3">⚔️</span>' : '') +
         (m.notes ? ' <span class="note-flag" title="' + escAttr(m.notes) + '">📝</span>' : '') +
@@ -957,7 +955,7 @@
       tbody.appendChild(tr);
 
       // Expanded Squad 2/3 detail strip, directly under the member's row.
-      if (showExp && expOpen) {
+      if (expOpen) {
         const part = n => {
           const pv = m['squad' + n];
           const tv = m['squad' + n + 'Type'];
