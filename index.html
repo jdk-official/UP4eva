@@ -150,8 +150,6 @@
   .seat-conf { font-size: 0.65rem; color: #5a6a7d; margin-top: 2px; }
   .stat .val .seat-badge { font-size: 0.8rem; margin-right: 2px; }
   .seat-na { font-size: 0.72rem; color: #8fa3b8; font-weight: 600; }
-  .seat-note { background: var(--panel); border: 1px solid #3d506b; border-radius: 8px; padding: 8px 12px; font-size: 0.72rem; color: #9fb0c4; margin-bottom: 12px; line-height: 1.7; }
-  .seat-note strong { color: #cdd9e8; }
   .name { font-weight: 700; }
   .star { cursor: pointer; font-size: 1.15rem; line-height: 1; user-select: none; opacity: 0.35; transition: opacity .1s, transform .1s; }
   .star.on { opacity: 1; }
@@ -161,24 +159,6 @@
   .vote-mark { cursor: pointer; font-size: 1.05rem; line-height: 1; user-select: none; opacity: 0.28; color: var(--accent); transition: opacity .1s, transform .1s; }
   .vote-mark.on { opacity: 1; }
   .vote-mark:active { transform: scale(0.8); }
-  /* Transfer Surge planner */
-  .surge-panel { background: var(--panel); border: 1px solid #3d506b; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
-  .surge-panel h2 { font-size: 0.9rem; margin: 0 0 8px; color: #cdd9e8; }
-  .surge-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
-  .surge-panel label { font-size: 0.8rem; color: #cdd9e8; display: flex; gap: 6px; align-items: center; }
-  .surge-panel select { background: #1e2a3a; color: #cdd9e8; border: 1px solid #3d506b; border-radius: 6px; padding: 6px; font-size: 0.82rem; }
-  .surge-quota { font-size: 0.82rem; color: #cdd9e8; margin-bottom: 6px; }
-  .surge-avail { font-size: 0.76rem; color: #9fb0c4; margin-bottom: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
-  .surge-avail b { color: #cdd9e8; }
-  .surge-list { max-height: 340px; overflow-y: auto; border: 1px solid #3d506b; border-radius: 8px; }
-  .surge-list table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-  .surge-list td, .surge-list th { padding: 4px 8px; text-align: left; }
-  .surge-list th { position: sticky; top: 0; background: #243447; color: #9fb0c4; font-size: 0.68rem; text-transform: uppercase; }
-  .surge-list td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .surge-list tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
-  .surge-list tr.divider td { background: #1a2431; color: #cdd9e8; font-size: 0.72rem; font-weight: 700; text-align: center; padding: 4px; }
-  .surge-list tr.cutoff td { background: #3a2323; color: #e6a6a6; font-weight: 700; font-size: 0.74rem; text-align: center; padding: 4px; }
-  .surge-note { font-size: 0.72rem; color: #8fa3b8; margin-top: 10px; line-height: 1.6; }
   footer { margin-top: 16px; color: #8fa3b8; font-size: 0.75rem; text-align: center; }
 
   /* ---- Phone layout: shrink the roster table so it fits without the whole
@@ -236,7 +216,6 @@
     <button id="editBtn" title="Unlock editing with the password">&#128274; Edit</button>
     <button id="importBtn" title="Import stats from a screenshot">&#11014; Import</button>
     <button id="exportBtn" title="Download roster (with seat estimates) as CSV for Google Sheets / Excel">&#11015; Export CSV</button>
-    <button id="surgeBtn" title="Transfer Surge seat planner">&#128640; Transfer</button>
     <button id="refreshBtn" title="Reload shared data">&#8635; Refresh</button>
   </div>
 
@@ -257,27 +236,7 @@
     <div class="import-hint">Runs entirely in your browser (Tesseract.js). First run downloads the OCR engine (~a few MB), then it's cached. Top-ranked rows have low-contrast coloured text &mdash; double-check those in the review grid before applying.</div>
   </div>
 
-  <div class="surge-panel" id="surgePanel" hidden>
-    <h2>&#128640; Transfer Surge planner</h2>
-    <div class="surge-row">
-      <label>Destination openness:
-        <select id="surgeOpenness">
-          <option value="full">Fully Open</option>
-          <option value="semi">Semi-Open</option>
-          <option value="limited">Limited Open</option>
-        </select>
-      </label>
-      <label>Plan for alliance:
-        <select id="surgeAlliance"></select>
-      </label>
-    </div>
-    <div id="surgeOut"></div>
-    <div class="surge-note">Seats shown are the <strong>destination warzone's</strong> per-tier quotas, filled competitively by everyone who applies &mdash; your alliance won't automatically claim them all. The real tier is set by each commander's in-game <em>Individual Score</em> (peak power across heroes, squads, buildings, tech, drone, overlord) against dynamic thresholds; this ranks members by our estimate, which is only a proxy. Treat it as a rough guide to who'd likely make each tier and who risks missing a seat.</div>
-  </div>
-
   <div class="status" id="status">Loading shared data&hellip;</div>
-
-  <div class="seat-note" id="seatNote"></div>
 
   <div class="toolbar">
     <input type="search" id="search" class="search-box" placeholder="&#128269; Search commander&hellip;" autocomplete="off">
@@ -503,7 +462,6 @@
     };
     fill(document.getElementById('serverFilter'), roster.map(svrOf), 'All servers', serverFilter);
     fill(document.getElementById('allianceFilter'), roster.map(allyOf), 'All alliances', allianceFilter);
-    fillSurgeAlliance();
   }
 
   function cacheLocal() {
@@ -1084,75 +1042,6 @@
     statusEl.textContent = 'Exported ' + sorted.length + ' members to ' + a.download + ' — import it in Google Sheets via File ▸ Import.';
   }
 
-  // ---- Transfer Surge planner ----------------------------------------------
-  // Destination warzones have fixed per-tier seat quotas depending on openness
-  // (from the Transfer Surge mechanics). We rank an alliance's members by their
-  // estimated strength and map them onto those quota slots top-down.
-  const SURGE_QUOTAS = {
-    full:    { label: 'Fully Open',   Gold: 2, Purple: 8, Blue: 60, White: 80 },
-    semi:    { label: 'Semi-Open',    Gold: 1, Purple: 5, Blue: 40, White: 60 },
-    limited: { label: 'Limited Open', Gold: 0, Purple: 3, Blue: 30, White: 40 }
-  };
-  const SURGE_ROLE = { Gold: 'Elite', Purple: 'Contributor', Blue: 'Pioneer', White: 'Follower' };
-
-  function fillSurgeAlliance() {
-    const sa = document.getElementById('surgeAlliance');
-    if (!sa) return;
-    const uniq = [...new Set(roster.map(allyOf))].sort();
-    const cur = sa.value || 'UP4';
-    const pick = uniq.includes(cur) ? cur : (uniq.includes('UP4') ? 'UP4' : uniq[0]);
-    sa.innerHTML = uniq.map(v => '<option value="' + escAttr(v) + '"' + (v === pick ? ' selected' : '') + '>' + escAttr(v) + '</option>').join('');
-    sa.value = pick;
-  }
-
-  function renderSurge() {
-    const opn = document.getElementById('surgeOpenness').value;
-    const alliance = document.getElementById('surgeAlliance').value;
-    const q = SURGE_QUOTAS[opn];
-    const out = document.getElementById('surgeOut');
-    const tiers = ['Gold', 'Purple', 'Blue', 'White'];
-
-    const rated = roster.filter(m => allyOf(m) === alliance && m.thp != null)
-      .map(m => ({ m, e: seatOf(m) })).filter(x => x.e)
-      .sort((a, b) => b.e.adjustedScore - a.e.adjustedScore);
-    const unrated = roster.filter(m => allyOf(m) === alliance && m.thp == null).length;
-
-    if (!rated.length) { out.innerHTML = '<p class="muted">No rated members (with THP) in ' + escAttr(alliance) + '.</p>'; return; }
-
-    let cum = 0; const bounds = {};
-    tiers.forEach(t => { bounds[t] = [cum, cum + q[t]]; cum += q[t]; });
-    const totalSeats = cum;
-    const tierOf = i => { for (const t of tiers) if (i >= bounds[t][0] && i < bounds[t][1]) return t; return null; };
-
-    const getSeat = Math.min(rated.length, totalSeats);
-    const miss = rated.length - getSeat;
-    const badge = t => '<span class="seat-badge seat-' + t + '">' + t + '</span>';
-
-    const availLine = Object.values(SURGE_QUOTAS).map(qq => {
-      const seats = qq.Gold + qq.Purple + qq.Blue + qq.White;
-      const m = Math.max(0, rated.length - seats);
-      return '<span><b>' + qq.label + ':</b> ' + (m ? (rated.length - m) + ' seated, ' + m + ' miss' : 'all ' + rated.length + ' fit') + '</span>';
-    }).join('');
-
-    let html = '';
-    html += '<div class="surge-quota">Seat quotas (' + q.label + '): ' + tiers.map(t => badge(t) + ' ' + q[t]).join(' &middot; ') + ' <b>= ' + totalSeats + ' seats</b></div>';
-    html += '<div class="surge-avail">' + availLine + '</div>';
-    html += '<div class="surge-avail"><b>' + escAttr(alliance) + ':</b> ' + rated.length + ' rated' + (unrated ? ' (+' + unrated + ' no-THP)' : '') +
-      ' &mdash; under ' + q.label + ', ' + getSeat + ' get a seat' + (miss ? ', <span style="color:#e6a6a6">' + miss + ' miss out</span>' : ', all fit') + '.</div>';
-
-    html += '<div class="surge-list"><table><thead><tr><th>#</th><th>Commander</th><th class="num">Est. score</th><th>Projected seat</th></tr></thead><tbody>';
-    let lastTier = null, cutShown = false;
-    rated.forEach((x, i) => {
-      const t = tierOf(i);
-      if (t && t !== lastTier) { html += '<tr class="divider"><td colspan="4">' + q[t] + ' ' + t + ' (' + SURGE_ROLE[t] + ') seats</td></tr>'; lastTier = t; }
-      if (!t && !cutShown) { html += '<tr class="cutoff"><td colspan="4">&mdash; cutoff: no seat below this line (' + miss + ' miss out) &mdash;</td></tr>'; cutShown = true; }
-      html += '<tr><td class="num">' + (i + 1) + '</td><td>' + escAttr(x.m.name) + '</td><td class="num">' + x.e.adjustedScore.toFixed(1) +
-        '</td><td>' + (t ? badge(t) + ' ' + SURGE_ROLE[t] : '<span class="seat-na">no seat</span>') + '</td></tr>';
-    });
-    html += '</tbody></table></div>';
-    out.innerHTML = html;
-  }
-
   // ---- OCR import (Tesseract.js, in-browser) --------------------------------
   function loadImage(file) {
     return new Promise((res, rej) => {
@@ -1374,28 +1263,10 @@
   const allianceFilterEl = document.getElementById('allianceFilter');
   allianceFilterEl.addEventListener('change', () => { allianceFilter = allianceFilterEl.value; render(currentSort); });
 
-  // Seat-estimate disclaimer + band legend (single-sourced from the estimator)
-  (function () {
-    const note = document.getElementById('seatNote');
-    if (!note || typeof SeatEstimator === 'undefined') return;
-    const rng = b => !isFinite(b.min) ? '< ' + b.max : !isFinite(b.max) ? '≥ ' + b.min : b.min + '–' + b.max;
-    const legend = SeatEstimator.SEAT_BANDS.map(b =>
-      '<span class="seat-badge seat-' + b.colour + '">' + b.colour + '</span> ' + rng(b)).join(' &middot; ');
-    note.innerHTML = '<strong>Seat estimate</strong> &mdash; ' + SeatEstimator.DISCLAIMER +
-      '<br>Bands (adjusted score): ' + legend;
-  })();
-
   document.getElementById('importBtn').addEventListener('click', () => {
     const p = document.getElementById('importPanel');
     p.hidden = !p.hidden;
   });
-  document.getElementById('surgeBtn').addEventListener('click', () => {
-    const p = document.getElementById('surgePanel');
-    p.hidden = !p.hidden;
-    if (!p.hidden) { fillSurgeAlliance(); renderSurge(); }
-  });
-  document.getElementById('surgeOpenness').addEventListener('change', renderSurge);
-  document.getElementById('surgeAlliance').addEventListener('change', renderSurge);
   document.getElementById('ocrRun').addEventListener('click', runOCR);
   document.getElementById('exportBtn').addEventListener('click', exportCSV);
 
