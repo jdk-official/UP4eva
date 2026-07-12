@@ -16,7 +16,7 @@
     --silver: #c4cdd6;
     --bronze: #cd9b6a;
     --text-dark: #1e2a3a;
-    --tbc: #b06a6a;
+    --tbc: #8a4646;
     --core: #f2c14e;
   }
   * { box-sizing: border-box; }
@@ -46,7 +46,7 @@
   .stat { background: var(--panel); border-radius: 10px; padding: 10px 14px; flex: 1; min-width: 100px; }
   .stat .label { font-size: 0.7rem; color: #9fb0c4; text-transform: uppercase; letter-spacing: 0.5px; }
   .stat .val { font-size: 1.1rem; font-weight: 700; margin-top: 2px; }
-  .status { font-size: 0.75rem; color: #7e90a6; margin-bottom: 12px; min-height: 1em; }
+  .status { font-size: 0.75rem; color: #8fa3b8; margin-bottom: 12px; min-height: 1em; }
 
   /* Import / OCR panel */
   .import-panel { background: var(--panel); border: 1px solid #3d506b; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
@@ -59,7 +59,7 @@
   .import-panel button { background: var(--accent); color: #10220a; border: none; border-radius: 6px; padding: 7px 12px; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
   .import-panel button.ghost { background: transparent; color: #cdd9e8; border: 1px solid #3d506b; }
   .import-prog { font-size: 0.78rem; color: #9fb0c4; margin: 6px 0; min-height: 1em; }
-  .import-hint { font-size: 0.72rem; color: #7e90a6; margin-top: 4px; }
+  .import-hint { font-size: 0.72rem; color: #8fa3b8; margin-top: 4px; }
   table.review { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 8px; }
   table.review th, table.review td { border: 1px solid #3d506b; padding: 4px 6px; text-align: left; }
   table.review th { color: #9fb0c4; font-weight: 600; }
@@ -69,7 +69,7 @@
   .rv-status.ok { color: var(--accent); font-weight: 700; }
   .rv-status.new { color: var(--gold); font-weight: 700; }
   .import-actions { margin-top: 10px; display: flex; gap: 8px; }
-  .muted { color: #7e90a6; font-size: 0.8rem; }
+  .muted { color: #8fa3b8; font-size: 0.8rem; }
 
   table.roster { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
   thead th {
@@ -84,8 +84,9 @@
   tbody tr.rank2 { background: var(--silver); }
   tbody tr.rank3 { background: var(--bronze); }
   tbody tr.is-core { box-shadow: inset 3px 0 0 var(--core); }
+  tbody tr:hover { filter: brightness(0.96); }
   td { padding: 10px 6px; font-size: 0.9rem; font-weight: 600; }
-  td:first-child { border-radius: 8px 0 0 8px; width: 36px; color: #5a6a7d; }
+  td:first-child { border-radius: 8px 0 0 8px; width: 36px; color: #47566a; }
   td:last-child { border-radius: 0 8px 8px 0; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
   td.tbc { color: var(--tbc); font-style: italic; }
@@ -100,13 +101,13 @@
   .search-box::placeholder { color: #7e90a6; }
   .toolbar .toggle { background: var(--panel); color: #cdd9e8; border: 1px solid #3d506b; padding: 8px 12px; border-radius: 8px; font-size: 0.82rem; cursor: pointer; font-weight: 600; }
   .toolbar .toggle.active { background: var(--core); color: #3a2c08; border-color: var(--core); }
-  .result-count { color: #7e90a6; font-size: 0.78rem; margin-left: auto; }
+  .result-count { color: #8fa3b8; font-size: 0.78rem; margin-left: auto; }
   .toolbar select { background: var(--panel); color: #cdd9e8; border: 1px solid #3d506b; border-radius: 8px; padding: 7px 10px; font-size: 0.82rem; cursor: pointer; }
   td.name .note-flag { font-size: 0.8rem; cursor: pointer; }
   td.name .note-btn { cursor: pointer; opacity: 0.3; font-size: 0.85rem; user-select: none; }
   td.name .note-btn:hover { opacity: 0.85; }
-  td.name .meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-top: 3px; font-size: 0.62rem; color: #7e90a6; font-weight: 600; }
-  td.name .upd { color: #7e90a6; }
+  td.name .meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-top: 3px; font-size: 0.62rem; color: #4a5a6e; font-weight: 600; }
+  td.name .upd { color: #4a5a6e; }
   .tag { display: inline-block; padding: 1px 6px; border-radius: 8px; font-weight: 700; cursor: pointer; letter-spacing: 0.2px; }
   .tag-ally { background: #3b4a63; color: #cdd9e8; }
   .tag-svr { background: #2b3a4f; color: #9fb0c4; }
@@ -115,13 +116,13 @@
   thead th.seat { text-align: center; }
   .seat-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; }
   .seat-White { background: #eef2f7; color: #37475a; border: 1px solid #b9c4d2; }
-  .seat-Blue { background: #3f7fd1; color: #fff; }
+  .seat-Blue { background: #3572c2; color: #fff; }
   .seat-Purple { background: #8a63d2; color: #fff; }
   .seat-Gold { background: var(--gold); color: #3a2c08; }
   .sqtype-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; white-space: nowrap; }
-  .sqtype-Tank { background: #3f7fd1; color: #fff; }
-  .sqtype-Air { background: #2f9e6f; color: #fff; }
-  .sqtype-Missile { background: #d2635a; color: #fff; }
+  .sqtype-Tank { background: #3572c2; color: #fff; }
+  .sqtype-Air { background: #268355; color: #fff; }
+  .sqtype-Missile { background: #b94f46; color: #fff; }
   td.sqtype { text-align: center; }
   td.sqtype.editable-type { cursor: pointer; }
   td.selcol { text-align: center; white-space: nowrap; }
@@ -131,24 +132,24 @@
   .cell-select option { background: #1b2736; color: #dbe6f2; }
   /* Read-only display of a survey answer (shown when not in edit mode). */
   .answer-chip { display: inline-block; max-width: 120px; padding: 2px 8px; border-radius: 8px; background: #2b3a4d; color: #dbe6f2; font-size: 0.7rem; font-weight: 700; line-height: 1.25; white-space: normal; }
-  .answer-chip.tone-good { background: #2f9e6f; color: #fff; }
-  .answer-chip.tone-flex { background: #3f7fd1; color: #fff; }
-  .answer-chip.tone-mid  { background: #b8862e; color: #fff; }
+  .answer-chip.tone-good { background: #268355; color: #fff; }
+  .answer-chip.tone-flex { background: #3572c2; color: #fff; }
+  .answer-chip.tone-mid  { background: #e0ac3c; color: #3a2c08; }
   .answer-chip.tone-low  { background: #4a5a6e; color: #c7d2df; }
-  .answer-blank { color: #5a6a7d; }
+  .answer-blank { color: #47566a; }
   /* Seat Colour — mirrors the seat-estimate badge styling; adds a Gray tier. */
   td.seatcolour { text-align: center; white-space: nowrap; }
   thead th.seatcolour { text-align: center; }
   td.seatcolour.editable-seatcolour { cursor: pointer; }
   /* T11 — original badge styling (green Yes / grey No). */
   .t11-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; }
-  .t11-Yes { background: #2f9e6f; color: #fff; }
+  .t11-Yes { background: #268355; color: #fff; }
   .t11-No { background: #4a5a6e; color: #c7d2df; }
   td.t11 { text-align: center; }
   td.t11.editable-t11 { cursor: pointer; }
   .seat-conf { font-size: 0.65rem; color: #5a6a7d; margin-top: 2px; }
   .stat .val .seat-badge { font-size: 0.8rem; margin-right: 2px; }
-  .seat-na { font-size: 0.72rem; color: #7e90a6; font-weight: 600; }
+  .seat-na { font-size: 0.72rem; color: #8fa3b8; font-weight: 600; }
   .seat-note { background: var(--panel); border: 1px solid #3d506b; border-radius: 8px; padding: 8px 12px; font-size: 0.72rem; color: #9fb0c4; margin-bottom: 12px; line-height: 1.7; }
   .seat-note strong { color: #cdd9e8; }
   .name { font-weight: 700; }
@@ -177,8 +178,8 @@
   .surge-list tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
   .surge-list tr.divider td { background: #1a2431; color: #cdd9e8; font-size: 0.72rem; font-weight: 700; text-align: center; padding: 4px; }
   .surge-list tr.cutoff td { background: #3a2323; color: #e6a6a6; font-weight: 700; font-size: 0.74rem; text-align: center; padding: 4px; }
-  .surge-note { font-size: 0.72rem; color: #7e90a6; margin-top: 10px; line-height: 1.6; }
-  footer { margin-top: 16px; color: #7e90a6; font-size: 0.75rem; text-align: center; }
+  .surge-note { font-size: 0.72rem; color: #8fa3b8; margin-top: 10px; line-height: 1.6; }
+  footer { margin-top: 16px; color: #8fa3b8; font-size: 0.75rem; text-align: center; }
 
   /* ---- Phone layout: shrink the roster table so it fits without the whole
      page scrolling sideways. Horizontal scroll on the table itself is kept as
