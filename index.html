@@ -89,6 +89,7 @@
   td:first-child { border-radius: 8px 0 0 8px; width: 36px; color: #47566a; }
   td:last-child { border-radius: 0 8px 8px 0; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  thead th.season, td.season { text-align: center; }
   td.tbc { color: var(--tbc); font-style: italic; }
   .thp-short { display: none; } /* abbreviated THP (e.g. 175.8M) — shown only on narrow screens */
   td.core { text-align: center; cursor: pointer; }
@@ -126,6 +127,7 @@
   td.sqtype { text-align: center; }
   td.sqtype.editable-type { cursor: pointer; }
   td.selcol { text-align: center; white-space: nowrap; }
+  thead th.selcol, thead th.sqtype, thead th.t11 { text-align: center; }
   .cell-select { font: inherit; font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 8px; background: #26364a; color: #dbe6f2; border: 1px solid #3a4c63; cursor: pointer; max-width: 140px; }
   .cell-select:focus { outline: 2px solid #4f7fc0; }
   body.readonly .cell-select { cursor: not-allowed; }
@@ -265,8 +267,8 @@
         <th class="selcol">Buster Day?</th>
         <th class="num">HQ</th>
         <th class="num">Prof.</th>
-        <th class="num">Season Rank</th>
-        <th class="num">Season Score</th>
+        <th class="num season">Season Rank</th>
+        <th class="num season">Season Score</th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
