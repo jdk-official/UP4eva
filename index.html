@@ -112,6 +112,11 @@
   .tag { display: inline-block; padding: 1px 6px; border-radius: 8px; font-weight: 700; cursor: pointer; letter-spacing: 0.2px; }
   .tag-ally { background: #3b4a63; color: #cdd9e8; }
   .tag-svr { background: #2b3a4f; color: #9fb0c4; }
+  /* Alliance rank chip — first slot of the meta row; tap to cycle in edit mode. */
+  .rank-R5 { background: var(--gold); color: #3a2c08; }
+  .rank-R4 { background: #b35f1f; color: #fff; }
+  .rank-R3 { background: #4a6fa5; color: #fff; }
+  .rank-unset { background: transparent; border: 1px dashed #7e90a6; color: #66788c; }
   .tag:hover { outline: 1px solid var(--accent); }
   td.seat { text-align: center; white-space: nowrap; }
   thead th.seat { text-align: center; }
@@ -507,7 +512,7 @@
       return;
     }
     try {
-      const res = await fetch(JSONBIN.base + '/' + JSONBIN.binId + '/latest', {
+      const res = await fetch(JSONBIN.base + '/' + JSONBIN.binId + '/latest?_cb=' + Date.now(), {
         headers: { 'X-Access-Key': JSONBIN.accessKey, 'X-Bin-Meta': 'false' }
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -765,6 +770,20 @@
     await saveState();
   }
 
+  // Tap-to-cycle a member's alliance rank: — → R5 → R4 → R3 → —.
+  const RANK_CYCLE = [null, 'R5', 'R4', 'R3'];
+  async function cycleRank(el) {
+    if (!requireEdit()) return;
+    const m = roster.find(x => x.name === decode(el.getAttribute('data-name')));
+    if (!m) return;
+    const cur = m.rank == null ? null : m.rank;
+    const next = RANK_CYCLE[(RANK_CYCLE.indexOf(cur) + 1) % RANK_CYCLE.length];
+    if (next == null) delete m.rank; else m.rank = next;
+    m.updated = Date.now();
+    render(currentSort);
+    await saveState();
+  }
+
   // Change handler for the selectable survey dropdowns. Edit-gated; reverts if locked.
   async function onSelectChange(sel) {
     const key = sel.getAttribute('data-key');
@@ -984,6 +1003,9 @@
         (m.notes ? ' <span class="note-flag" title="' + escAttr(m.notes) + '">📝</span>' : '') +
         ' <span class="note-btn" title="Add / edit note">✎</span>' +
         '<div class="meta">' +
+          (m.rank
+            ? '<span class="tag tag-rank rank-' + m.rank + '" data-name="' + safeName + '" title="Alliance rank — tap to change">' + m.rank + '</span>'
+            : (editMode ? '<span class="tag tag-rank rank-unset" data-name="' + safeName + '" title="Set alliance rank">R?</span>' : '')) +
           '<span class="tag tag-ally editable-str" data-field="alliance" title="Tap to edit alliance" style="' + allyStyle(allyOf(m)) + '">' + escAttr(allyOf(m)) + '</span>' +
           '<span class="tag tag-svr editable-str" data-field="server" title="Tap to edit server" style="' + svrStyle(svrOf(m)) + '">S' + escAttr(svrOf(m)) + '</span>' +
           (m.updated ? '<span class="upd" title="Last updated ' + escAttr(new Date(m.updated).toLocaleString()) + '">&middot; upd ' + relTime(m.updated) + '</span>' : '') +
@@ -1115,6 +1137,14 @@
         editStr(cell, el.getAttribute('data-field'));
       });
     });
+
+    // Alliance rank chip — tap cycles — → R5 → R4 → R3 → — (edit mode only).
+    tbody.querySelectorAll('.tag-rank').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cycleRank(el);
+      });
+    });
   }
 
   // ---- CSV export (for Google Sheets / Excel) -------------------------------
@@ -1134,7 +1164,7 @@
       if (b.thp == null) return -1;
       return b.thp - a.thp;
     });
-    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type',
+    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Alliance Rank', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type',
       'Squad 2', 'Squad 2 Type', 'Squad 3', 'Squad 3 Type', 'T2/3 Group', 'T11',
       'Seat Colour (declared)', 'How active are you in VS?', 'Buster Day?',
       'HQ Level', 'Professional Level',
@@ -1147,6 +1177,7 @@
         m.name,
         svrOf(m),
         allyOf(m),
+        m.rank == null ? '' : m.rank,
         core.has(m.name) ? 'Yes' : '',
         votedYes.has(m.name) ? 'Yes' : '',
         m.thp == null ? '' : m.thp,
