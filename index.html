@@ -865,26 +865,29 @@
 
   function updateStats() {
     document.getElementById('memberCount').textContent = roster.length;
-    document.getElementById('coreCount').textContent = core.size;
     const withThp = roster.filter(m => m.thp != null);
     document.getElementById('totalThp').textContent = (withThp.reduce((s, m) => s + m.thp, 0) / 1e9).toFixed(2) + 'B';
     document.getElementById('totalKills').textContent = roster.reduce((s, m) => s + (Number(m.kills) || 0), 0).toFixed(1) + 'M';
     document.getElementById('squadLogged').textContent = roster.filter(m => m.squad1 != null).length + '/' + roster.length;
 
-    // Voted Yes count + breakdown of those members' declared Seat Colour.
-    const seatCounts = { Gold: 0, Purple: 0, Blue: 0, White: 0, na: 0 };
-    roster.forEach(m => {
-      if (!votedYes.has(m.name)) return;
-      if (m.seatColour) seatCounts[m.seatColour] = (seatCounts[m.seatColour] || 0) + 1; else seatCounts.na++;
-    });
-    const anyColoured = seatCounts.Gold + seatCounts.Purple + seatCounts.Blue + seatCounts.White > 0;
-    let votedHtml = String(votedYes.size);
-    if (anyColoured) {
-      votedHtml += ' ' + ['Gold', 'Purple', 'Blue', 'White'].filter(c => seatCounts[c])
-        .map(c => '<span class="seat-badge seat-' + c + '" title="' + c + '">' + seatCounts[c] + '</span>').join(' ');
-      if (seatCounts.na) votedHtml += ' <span class="seat-na">' + seatCounts.na + ' n/a</span>';
-    }
-    document.getElementById('votedCount').innerHTML = votedHtml;
+    // Count + breakdown of a member set's declared Seat Colour (badges only
+    // once at least one member has a colour; n/a = colour not yet set).
+    const seatBreakdown = set => {
+      const counts = { Gold: 0, Purple: 0, Blue: 0, White: 0, na: 0 };
+      roster.forEach(m => {
+        if (!set.has(m.name)) return;
+        if (m.seatColour) counts[m.seatColour] = (counts[m.seatColour] || 0) + 1; else counts.na++;
+      });
+      let html = String(set.size);
+      if (counts.Gold + counts.Purple + counts.Blue + counts.White > 0) {
+        html += ' ' + ['Gold', 'Purple', 'Blue', 'White'].filter(c => counts[c])
+          .map(c => '<span class="seat-badge seat-' + c + '" title="' + c + '">' + counts[c] + '</span>').join(' ');
+        if (counts.na) html += ' <span class="seat-na">' + counts.na + ' n/a</span>';
+      }
+      return html;
+    };
+    document.getElementById('votedCount').innerHTML = seatBreakdown(votedYes);
+    document.getElementById('coreCount').innerHTML = seatBreakdown(core);
   }
 
   function seatOf(m) {
