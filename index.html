@@ -236,7 +236,7 @@
     <button id="editBtn" title="Unlock editing with the password">&#128274; Edit</button>
     <button id="importBtn" title="Import stats from a screenshot">&#11014; Import</button>
     <button id="exportBtn" title="Download roster (with seat estimates) as CSV for Google Sheets / Excel">&#11015; Export CSV</button>
-    <button id="nutsBtn" title="Export the transfer shortlist (Voted Yes ∪ Core) in the planning-sheet format">&#129372; Get the Nuts</button>
+    <button id="nutsBtn" title="Export the Core shortlist in the planning-sheet format">&#129372; Get the Nuts</button>
     <button id="refreshBtn" title="Reload shared data">&#8635; Refresh</button>
   </div>
 
@@ -1227,11 +1227,11 @@
     statusEl.textContent = 'Exported ' + sorted.length + ' members to ' + a.download + ' — import it in Google Sheets via File ▸ Import.';
   }
 
-  // "The Nuts" — the transfer shortlist (Voted Yes ∪ Core) in the sheet format:
+  // "The Nuts" — the Core shortlist in the sheet format:
   // server | alliance | player | hq | profession | THP M | T1 | kill | seat | core | voted
   // Powers in millions (1 dp); seat = declared colour lowercase (White -> grey).
   function exportNuts() {
-    const picked = roster.filter(m => votedYes.has(m.name) || core.has(m.name))
+    const picked = roster.filter(m => core.has(m.name))
       .sort((a, b) => {
         if (a.thp == null && b.thp == null) return a.name.localeCompare(b.name);
         if (a.thp == null) return 1;
@@ -1268,7 +1268,7 @@
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    statusEl.textContent = 'Exported The Nuts — ' + picked.length + ' members (Voted Yes ∪ Core) to ' + a.download + '.';
+    statusEl.textContent = 'Exported The Nuts — ' + picked.length + ' Core members to ' + a.download + '.';
   }
 
   // ---- OCR import (Tesseract.js, in-browser) --------------------------------
