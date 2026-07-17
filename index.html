@@ -1227,11 +1227,11 @@
     statusEl.textContent = 'Exported ' + sorted.length + ' members to ' + a.download + ' — import it in Google Sheets via File ▸ Import.';
   }
 
-  // "The Nuts" — the Voted Yes shortlist in the planning-sheet format:
-  // server | alliance | player | hq | profession | THP M | T1 | kill | seat
+  // "The Nuts" — the transfer shortlist (Voted Yes ∪ Core) in the sheet format:
+  // server | alliance | player | hq | profession | THP M | T1 | kill | seat | core | voted
   // Powers in millions (1 dp); seat = declared colour lowercase (White -> grey).
   function exportNuts() {
-    const picked = roster.filter(m => votedYes.has(m.name))
+    const picked = roster.filter(m => votedYes.has(m.name) || core.has(m.name))
       .sort((a, b) => {
         if (a.thp == null && b.thp == null) return a.name.localeCompare(b.name);
         if (a.thp == null) return 1;
@@ -1239,7 +1239,7 @@
         return b.thp - a.thp;
       });
     const seatOut = c => c == null ? '' : (c === 'White' ? 'grey' : c.toLowerCase());
-    const headers = ['server', 'alliance', 'player', 'hq', 'profession', 'THP M', 'T1', 'kill', 'seat'];
+    const headers = ['server', 'alliance', 'player', 'hq', 'profession', 'THP M', 'T1', 'kill', 'seat', 'core', 'voted'];
     const lines = picked.map(m => [
       svrOf(m),
       allyOf(m),
@@ -1249,11 +1249,15 @@
       m.thp == null ? '' : (m.thp / 1e6).toFixed(1),
       m.squad1 == null ? '' : (m.squad1 / 1e6).toFixed(1),
       (Number(m.kills) || 0).toFixed(1),
-      seatOut(m.seatColour)
+      seatOut(m.seatColour),
+      core.has(m.name) ? 'yes' : '',
+      votedYes.has(m.name) ? 'yes' : ''
     ].map(csvCell).join(','));
     const totThp = picked.reduce((s, m) => s + (m.thp || 0), 0) / 1e6;
     const totKills = picked.reduce((s, m) => s + (Number(m.kills) || 0), 0);
-    lines.push(['Total', '', '', '', '', totThp.toFixed(1), '', totKills.toFixed(1), picked.length].map(csvCell).join(','));
+    const totCore = picked.filter(m => core.has(m.name)).length;
+    const totVoted = picked.filter(m => votedYes.has(m.name)).length;
+    lines.push(['Total', '', '', '', '', totThp.toFixed(1), '', totKills.toFixed(1), picked.length, totCore, totVoted].map(csvCell).join(','));
     const csv = headers.map(csvCell).join(',') + '\r\n' + lines.join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const stamp = new Date().toISOString().slice(0, 10);
@@ -1264,7 +1268,7 @@
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    statusEl.textContent = 'Exported The Nuts — ' + picked.length + ' Voted Yes members to ' + a.download + '.';
+    statusEl.textContent = 'Exported The Nuts — ' + picked.length + ' members (Voted Yes ∪ Core) to ' + a.download + '.';
   }
 
   // ---- OCR import (Tesseract.js, in-browser) --------------------------------
