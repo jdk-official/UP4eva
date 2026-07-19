@@ -154,6 +154,13 @@
   .t11-No { background: #4a5a6e; color: #c7d2df; }
   td.t11 { text-align: center; }
   td.t11.editable-t11 { cursor: pointer; }
+  /* Target Alliance — tap-to-cycle chip (PSD / SPnX). */
+  td.talliance { text-align: center; white-space: nowrap; }
+  thead th.talliance { text-align: center; }
+  td.talliance.editable-tally { cursor: pointer; }
+  .tally-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; }
+  .tally-PSD { background: #27706b; color: #fff; }
+  .tally-SPnX { background: #a34a7d; color: #fff; }
   /* Squad 2/3 tracking — expander chevron, group marker, detail strip. */
   .sq-exp { cursor: pointer; user-select: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; background: #3b4a63; color: #dbe6f2; font-size: 0.8rem; margin-right: 6px; vertical-align: middle; transition: transform .12s, background .12s; }
   .sq-exp:hover { background: #52688a; }
@@ -283,6 +290,7 @@
         <th class="num">Squad 1</th>
         <th class="sqtype">Squad Type</th>
         <th class="seatcolour">Seat Colour</th>
+        <th class="talliance">Target Alliance</th>
         <th class="t11">T11</th>
         <th class="num season">Season Rank</th>
         <th class="num season">Season Score</th>
@@ -734,6 +742,20 @@
     await saveState();
   }
 
+  // Tap-to-cycle a member's target alliance: null → PSD → SPnX → null.
+  const TARGET_ALLIANCE_CYCLE = [null, 'PSD', 'SPnX'];
+  async function cycleTargetAlliance(cell) {
+    if (!requireEdit()) return;
+    const m = roster.find(x => x.name === decode(cell.getAttribute('data-name')));
+    if (!m) return;
+    const cur = m.targetAlliance == null ? null : m.targetAlliance;
+    const next = TARGET_ALLIANCE_CYCLE[(TARGET_ALLIANCE_CYCLE.indexOf(cur) + 1) % TARGET_ALLIANCE_CYCLE.length];
+    if (next == null) delete m.targetAlliance; else m.targetAlliance = next;
+    m.updated = Date.now();
+    render(currentSort);
+    await saveState();
+  }
+
   // Tap-to-toggle a member's T11 flag: No ⇄ Yes.
   async function toggleT11(cell) {
     if (!requireEdit()) return;
@@ -991,6 +1013,8 @@
         '<span class="t11-badge t11-' + t11v + '">' + t11v + '</span></td>';
       const seatColourCell = '<td class="seatcolour editable-seatcolour" data-name="' + safeName + '" title="Tap to cycle seat colour (White / Blue / Purple / Gold)">' +
         (m.seatColour ? '<span class="seat-badge seat-' + m.seatColour + '">' + m.seatColour + '</span>' : '&mdash;') + '</td>';
+      const tallyCell = '<td class="talliance editable-tally" data-name="' + safeName + '" title="Tap to cycle target alliance (PSD / SPnX)">' +
+        (m.targetAlliance ? '<span class="tally-badge tally-' + m.targetAlliance + '">' + m.targetAlliance + '</span>' : '&mdash;') + '</td>';
       const rankCell = '<td class="num editable season" data-name="' + safeName + '" data-field="seasonRank" title="Tap to edit JKs Season Rank">' + (m.seasonRank == null ? '&mdash;' : m.seasonRank) + '</td>';
       const scoreTip = (m.seasonScore != null && m.seasonCG != null)
         ? 'CG ' + m.seasonCG + ' · Cap ' + m.seasonCap + ' · Kills ' + m.seasonKills + ' — tap to edit'
@@ -1025,6 +1049,7 @@
         squadCell +
         typeCell +
         seatColourCell +
+        tallyCell +
         t11Cell +
         rankCell +
         scoreCell;
@@ -1052,14 +1077,14 @@
           '<span class="sq-power" data-name="' + safeName + '" data-field="' + field + '" title="Tap to edit ' + label + '">' + (val == null ? '&mdash;' : val) + '</span></span>';
         const dtr = document.createElement('tr');
         dtr.className = 'squad-detail';
-        dtr.innerHTML = '<td colspan="12"><div class="sq-detail-flex">' + part(2) + part(3) + survey +
+        dtr.innerHTML = '<td colspan="13"><div class="sq-detail-flex">' + part(2) + part(3) + survey +
           lvl('HQ', 'hqLevel', m.hqLevel) + lvl('Prof.', 'profLevel', m.profLevel) + trackBox + '</div></td>';
         tbody.appendChild(dtr);
       }
     });
 
     if (!visible.length) {
-      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
     }
 
     // The whole Core cell is the tap target (bigger than the ★ glyph for touch).
@@ -1088,6 +1113,11 @@
     // Seat Colour cell — tap cycles null → Gray → Blue → Purple → Gold (edit mode only).
     tbody.querySelectorAll('td.seatcolour').forEach(cell => {
       cell.addEventListener('click', () => cycleSeatColour(cell));
+    });
+
+    // Target Alliance cell — tap cycles null → PSD → SPnX → null (edit mode only).
+    tbody.querySelectorAll('td.talliance').forEach(cell => {
+      cell.addEventListener('click', () => cycleTargetAlliance(cell));
     });
 
     // T11 cell — tap toggles No ⇄ Yes (edit mode only).
@@ -1170,7 +1200,7 @@
     });
     const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Alliance Rank', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type',
       'Squad 2', 'Squad 2 Type', 'Squad 3', 'Squad 3 Type', 'T2/3 Group', 'T11',
-      'Seat Colour (declared)', 'How active are you in VS?', 'Buster Day?',
+      'Seat Colour (declared)', 'Target Alliance', 'How active are you in VS?', 'Buster Day?',
       'HQ Level', 'Professional Level',
       'JKs Season Rank', 'JKs Season Score', 'CG norm', 'Cap norm', 'Kills norm',
       'Seat colour', 'Role', 'Confidence', 'Squad/THP ratio', 'Squad 1 estimated', 'Flags', 'Explanation'];
@@ -1195,6 +1225,7 @@
         m.squadGroup ? 'Yes' : '',
         (m.t11 === 'Yes' || m.t11 === true) ? 'Yes' : 'No',
         m.seatColour == null ? '' : m.seatColour,
+        m.targetAlliance == null ? '' : m.targetAlliance,
         m.vsActivity == null ? '' : m.vsActivity,
         m.busterDay == null ? '' : m.busterDay,
         m.hqLevel == null ? '' : m.hqLevel,
@@ -1239,7 +1270,7 @@
         return b.thp - a.thp;
       });
     const seatOut = c => c == null ? '' : (c === 'White' ? 'grey' : c.toLowerCase());
-    const headers = ['server', 'alliance', 'player', 'hq', 'profession', 'THP M', 'T1', 'kill', 'seat', 'core', 'voted'];
+    const headers = ['server', 'alliance', 'player', 'hq', 'profession', 'THP M', 'T1', 'kill', 'seat', 'target', 'core', 'voted'];
     const lines = picked.map(m => [
       svrOf(m),
       allyOf(m),
@@ -1250,6 +1281,7 @@
       m.squad1 == null ? '' : (m.squad1 / 1e6).toFixed(1),
       (Number(m.kills) || 0).toFixed(1),
       seatOut(m.seatColour),
+      m.targetAlliance == null ? '' : m.targetAlliance,
       core.has(m.name) ? 'yes' : '',
       votedYes.has(m.name) ? 'yes' : ''
     ].map(csvCell).join(','));
@@ -1257,7 +1289,7 @@
     const totKills = picked.reduce((s, m) => s + (Number(m.kills) || 0), 0);
     const totCore = picked.filter(m => core.has(m.name)).length;
     const totVoted = picked.filter(m => votedYes.has(m.name)).length;
-    lines.push(['Total', '', '', '', '', totThp.toFixed(1), '', totKills.toFixed(1), picked.length, totCore, totVoted].map(csvCell).join(','));
+    lines.push(['Total', '', '', '', '', totThp.toFixed(1), '', totKills.toFixed(1), picked.length, '', totCore, totVoted].map(csvCell).join(','));
     const csv = headers.map(csvCell).join(',') + '\r\n' + lines.join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const stamp = new Date().toISOString().slice(0, 10);
