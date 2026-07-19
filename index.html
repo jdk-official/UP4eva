@@ -268,11 +268,14 @@
 
   <div class="toolbar">
     <input type="search" id="search" class="search-box" placeholder="&#128269; Search commander&hellip;" autocomplete="off">
-    <select id="serverFilter" title="Filter by server"></select>
-    <select id="allianceFilter" title="Filter by alliance"></select>
+    <select id="targetFilter" title="Filter by target alliance">
+      <option value="">All targets</option>
+      <option value="PSD">PSD</option>
+      <option value="SPnX">SPnX</option>
+      <option value="none">Unassigned</option>
+    </select>
     <button id="coreOnlyBtn" class="toggle" title="Show core members only">&#9733; Core only</button>
     <button id="votedOnlyBtn" class="toggle" title="Show 'Voted Yes' members only">&#10004; Voted only</button>
-    <button id="squadsOnlyBtn" class="toggle" title="Show only members tracked for Squad 2/3">&#9876;&#65039; T2/3 group</button>
     <button id="expandAllBtn" class="toggle" title="Expand/collapse all member details">&#9662; Expand all</button>
     <span class="result-count" id="resultCount"></span>
   </div>
@@ -285,12 +288,12 @@
         <th>Commander</th>
         <th class="core">Core</th>
         <th class="vote">Voted Yes</th>
+        <th class="talliance">Target Alliance</th>
         <th class="num">THP</th>
         <th class="num">Kills</th>
         <th class="num">Squad 1</th>
         <th class="sqtype">Squad Type</th>
         <th class="seatcolour">Seat Colour</th>
-        <th class="talliance">Target Alliance</th>
         <th class="t11">T11</th>
         <th class="num season">Season Rank</th>
         <th class="num season">Season Score</th>
@@ -471,9 +474,9 @@
   let votedYes = new Set();
   let currentSort = 'thp';
   let searchTerm = '';
-  let coreOnly = false;
-  let votedOnly = true;   // default view: show only 'Voted Yes' members
-  let squadsOnly = false; // toolbar filter: show only the hand-picked T2/T3 group
+  let coreOnly = true;    // default view: show only Core members
+  let votedOnly = false;
+  let targetFilter = '';  // '' = all, 'PSD' / 'SPnX', or 'none' = unassigned
   let expandAll = false;  // toolbar toggle: open every visible member's detail strip
   const expandedSquads = new Set(); // names with their Squad 2/3 strip open (session-only)
   let serverFilter = '';
@@ -979,11 +982,9 @@
       (!q || m.name.toLowerCase().includes(q)) &&
       (!coreOnly || core.has(m.name)) &&
       (!votedOnly || votedYes.has(m.name)) &&
-      (!squadsOnly || m.squadGroup) &&
-      (!serverFilter || svrOf(m) === serverFilter) &&
-      (!allianceFilter || allyOf(m) === allianceFilter));
+      (!targetFilter || (targetFilter === 'none' ? m.targetAlliance == null : m.targetAlliance === targetFilter)));
     const rc = document.getElementById('resultCount');
-    if (rc) rc.textContent = (q || coreOnly || votedOnly || squadsOnly || serverFilter || allianceFilter)
+    if (rc) rc.textContent = (q || coreOnly || votedOnly || targetFilter)
       ? (visible.length + ' of ' + roster.length + ' shown') : '';
 
     // Per-value tag colours (recomputed each render so new values get a colour).
@@ -1044,12 +1045,12 @@
         nameCell +
         '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>' +
         '<td class="vote"><span class="vote-mark ' + votedOn + '" data-name="' + safeName + '">✔</span></td>' +
+        tallyCell +
         thpCell +
         '<td class="num">' + fmtMil(Number(m.kills) || 0) + '</td>' +
         squadCell +
         typeCell +
         seatColourCell +
-        tallyCell +
         t11Cell +
         rankCell +
         scoreCell;
@@ -1507,15 +1508,10 @@
   const searchEl = document.getElementById('search');
   searchEl.addEventListener('input', () => { searchTerm = searchEl.value; render(currentSort); });
   const coreOnlyBtn = document.getElementById('coreOnlyBtn');
+  coreOnlyBtn.classList.toggle('active', coreOnly); // reflect the default-on state
   coreOnlyBtn.addEventListener('click', () => {
     coreOnly = !coreOnly;
     coreOnlyBtn.classList.toggle('active', coreOnly);
-    render(currentSort);
-  });
-  const squadsOnlyBtn = document.getElementById('squadsOnlyBtn');
-  squadsOnlyBtn.addEventListener('click', () => {
-    squadsOnly = !squadsOnly;
-    squadsOnlyBtn.classList.toggle('active', squadsOnly);
     render(currentSort);
   });
   const expandAllBtn = document.getElementById('expandAllBtn');
@@ -1527,16 +1523,14 @@
     render(currentSort);
   });
   const votedOnlyBtn = document.getElementById('votedOnlyBtn');
-  votedOnlyBtn.classList.toggle('active', votedOnly); // reflect the default-on state
+  votedOnlyBtn.classList.toggle('active', votedOnly);
   votedOnlyBtn.addEventListener('click', () => {
     votedOnly = !votedOnly;
     votedOnlyBtn.classList.toggle('active', votedOnly);
     render(currentSort);
   });
-  const serverFilterEl = document.getElementById('serverFilter');
-  serverFilterEl.addEventListener('change', () => { serverFilter = serverFilterEl.value; render(currentSort); });
-  const allianceFilterEl = document.getElementById('allianceFilter');
-  allianceFilterEl.addEventListener('change', () => { allianceFilter = allianceFilterEl.value; render(currentSort); });
+  const targetFilterEl = document.getElementById('targetFilter');
+  targetFilterEl.addEventListener('change', () => { targetFilter = targetFilterEl.value; render(currentSort); });
 
   document.getElementById('importBtn').addEventListener('click', () => {
     const p = document.getElementById('importPanel');
