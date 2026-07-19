@@ -46,6 +46,7 @@
   .stat { background: var(--panel); border-radius: 10px; padding: 10px 14px; flex: 1; min-width: 100px; }
   .stat .label { font-size: 0.7rem; color: #9fb0c4; text-transform: uppercase; letter-spacing: 0.5px; }
   .stat .val { font-size: 1.1rem; font-weight: 700; margin-top: 2px; }
+  .stat .substat { font-size: 0.7rem; font-weight: 600; color: #9fb0c4; margin-top: 3px; white-space: nowrap; }
   .status { font-size: 0.75rem; color: #8fa3b8; margin-bottom: 12px; min-height: 1em; }
 
   /* Import / OCR panel */
@@ -227,8 +228,8 @@
     <div class="stat"><div class="label">Members</div><div class="val" id="memberCount">&mdash;</div></div>
     <div class="stat"><div class="label">Voted Yes</div><div class="val" id="votedCount">&mdash;</div></div>
     <div class="stat"><div class="label">Core</div><div class="val" id="coreCount">&mdash;</div></div>
-    <div class="stat"><div class="label">Total THP</div><div class="val" id="totalThp">&mdash;</div></div>
-    <div class="stat"><div class="label">Total Kills</div><div class="val" id="totalKills">&mdash;</div></div>
+    <div class="stat"><div class="label">PSD</div><div class="val" id="psdStats">&mdash;</div></div>
+    <div class="stat"><div class="label">SPnX</div><div class="val" id="spnxStats">&mdash;</div></div>
     <div class="stat"><div class="label">Squad 1 logged</div><div class="val" id="squadLogged">&mdash;</div></div>
   </div>
 
@@ -891,9 +892,26 @@
 
   function updateStats() {
     document.getElementById('memberCount').textContent = roster.length;
-    const withThp = roster.filter(m => m.thp != null);
-    document.getElementById('totalThp').textContent = (withThp.reduce((s, m) => s + m.thp, 0) / 1e9).toFixed(2) + 'B';
-    document.getElementById('totalKills').textContent = roster.reduce((s, m) => s + (Number(m.kills) || 0), 0).toFixed(1) + 'M';
+    // Per-target-alliance tiles: seat count (with colour badges), THP, Kills, T1.
+    const allianceStats = tag => {
+      const members = roster.filter(m => m.targetAlliance === tag);
+      const counts = { Gold: 0, Purple: 0, Blue: 0, White: 0, na: 0 };
+      members.forEach(m => {
+        if (m.seatColour) counts[m.seatColour] = (counts[m.seatColour] || 0) + 1; else counts.na++;
+      });
+      let html = String(members.length);
+      const badges = ['Gold', 'Purple', 'Blue', 'White'].filter(c => counts[c])
+        .map(c => '<span class="seat-badge seat-' + c + '" title="' + c + '">' + counts[c] + '</span>').join(' ');
+      if (badges) html += ' ' + badges;
+      if (counts.na) html += ' <span class="seat-na">' + counts.na + ' n/a</span>';
+      const thp = members.reduce((s, m) => s + (m.thp || 0), 0);
+      const kills = members.reduce((s, m) => s + (Number(m.kills) || 0), 0);
+      const t1 = members.reduce((s, m) => s + (m.squad1 || 0), 0);
+      html += '<div class="substat">THP ' + (thp / 1e9).toFixed(2) + 'B &middot; Kills ' + kills.toFixed(1) + 'M &middot; T1 ' + (t1 / 1e6).toFixed(0) + 'M</div>';
+      return html;
+    };
+    document.getElementById('psdStats').innerHTML = allianceStats('PSD');
+    document.getElementById('spnxStats').innerHTML = allianceStats('SPnX');
     document.getElementById('squadLogged').textContent = roster.filter(m => m.squad1 != null).length + '/' + roster.length;
 
     // Count + breakdown of a member set's declared Seat Colour (badges only
