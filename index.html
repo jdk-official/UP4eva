@@ -254,8 +254,8 @@
   <h1>&#128668; Swirrel's RSS Farm Roster</h1>
   <div class="sub">Total Hero Power &amp; Kills &middot; tap a header to sort &middot; tap &#9733; to mark core</div>
 
-  <!-- Live "RSS feed" from the alliance farm (a running joke — Biggunsbigarmy
-       is the farm). Hidden until the member record carries farm* values. -->
+  <!-- Live "RSS feed" from the alliance farm (a running joke — Sippu is the
+       farm). Hidden until the member record carries farm* values. -->
   <div class="farm-ticker" id="farmTicker" hidden>
     <span class="farm-live"><span class="live-dot"></span>Farm of the Day</span>
     <button class="farm-loc-btn" id="farmLocBtn" title="Farm location — satellite view">📍</button>
@@ -266,9 +266,9 @@
   <div class="farm-map" id="farmMap" hidden>
     <div class="farm-map-inner">
       <div class="farm-map-title">🛰️ FARM LOCATION &mdash; CLASSIFIED</div>
-      <img src="farm-location.png" alt="Biggunsbigarmy's base — the golden pyramid">
+      <img src="farm-location.webp" alt="Sippu's base — the haunted castle">
       <div class="farm-map-review">⭐⭐⭐⭐⭐ &ldquo;came for the bread, stayed for the gold&rdquo; &mdash; recent visitor</div>
-      <div class="farm-map-cap">#1115 &middot; [UP7]Biggunsbigarmy &middot; look for the golden pyramid &middot; tap anywhere to close</div>
+      <div class="farm-map-cap">#1115 &middot; [UP7]Sippu &middot; look for the haunted castle &middot; tap anywhere to close</div>
     </div>
   </div>
 
@@ -957,7 +957,7 @@
     input.addEventListener('blur', () => commit(true));
   }
 
-  // ---- Farm "RSS feed" ticker (the joke: Biggunsbigarmy is our farm) --------
+  // ---- Farm "RSS feed" ticker (the joke: Sippu is our farm) -----------------
   // Reads farmBread/farmGold/farmIron (millions) off the farm's member record;
   // hidden until those exist. Displayed numbers trickle upward while you watch,
   // because the farm never sleeps.
@@ -966,7 +966,7 @@
   function updateFarmTicker() {
     const t = document.getElementById('farmTicker');
     if (!t) return;
-    const farm = roster.find(x => norm(x.name) === 'biggunsbigarmy');
+    const farm = roster.find(x => norm(x.name) === 'sippu');
     if (!farm || farm.farmBread == null) {
       t.hidden = true;
       if (farmTimer) { clearInterval(farmTimer); farmTimer = null; }
@@ -979,7 +979,7 @@
     const txt = document.getElementById('tickerText');
     if (!txt.innerHTML) {
       txt.innerHTML = '🚜 <b>UP7 FARM NETWORK</b> &mdash; OFFICIAL RSS FEED &middot; ' +
-        'Fresh from <b>Biggunsbigarmy Farms&trade;</b>: ' +
+        'Fresh from <b>Sippu Farms&trade;</b>: ' +
         '🍞 <span id="farmB"></span> &middot; ⚙️ <span id="farmI"></span> &middot; 🪙 <span id="farmG"></span> &middot; 🛢️ <span id="farmO"></span> ' +
         '&middot; ☀️ Harvest conditions: excellent &middot; light raiding expected from the east';
     }
