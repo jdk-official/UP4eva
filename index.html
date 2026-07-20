@@ -48,6 +48,9 @@
   .stat .label { font-size: 0.7rem; color: #9fb0c4; text-transform: uppercase; letter-spacing: 0.5px; }
   .stat .val { font-size: 1.1rem; font-weight: 700; margin-top: 2px; }
   .stat .substat { font-size: 0.7rem; font-weight: 600; color: #9fb0c4; margin-top: 3px; white-space: nowrap; }
+  .pipe-no { background: #8a4646; color: #fff; }
+  .pipe-wait { background: #3572c2; color: #fff; }
+  .pipe-ok { background: #268355; color: #fff; }
   .status { font-size: 0.75rem; color: #8fa3b8; margin-bottom: 12px; min-height: 1em; }
 
   /* Import / OCR panel */
@@ -239,7 +242,7 @@
     <div class="stat"><div class="label">Core</div><div class="val" id="coreCount">&mdash;</div></div>
     <div class="stat"><div class="label">PSD</div><div class="val" id="psdStats">&mdash;</div></div>
     <div class="stat"><div class="label">SPnX</div><div class="val" id="spnxStats">&mdash;</div></div>
-    <div class="stat"><div class="label">Squad 1 logged</div><div class="val" id="squadLogged">&mdash;</div></div>
+    <div class="stat"><div class="label">Transfer Progress</div><div class="val" id="transferStats">&mdash;</div></div>
   </div>
 
   <div class="controls">
@@ -940,7 +943,15 @@
     };
     document.getElementById('psdStats').innerHTML = allianceStats('PSD');
     document.getElementById('spnxStats').innerHTML = allianceStats('SPnX');
-    document.getElementById('squadLogged').textContent = roster.filter(m => m.squad1 != null).length + '/' + roster.length;
+    // Transfer pipeline across Core members: not submitted → waiting → approved.
+    const coreMembers = roster.filter(m => core.has(m.name));
+    const pipeNo = coreMembers.filter(m => !m.submitted && !m.approved).length;
+    const pipeWait = coreMembers.filter(m => m.submitted && !m.approved).length;
+    const pipeOk = coreMembers.filter(m => m.approved).length;
+    document.getElementById('transferStats').innerHTML =
+      '<span class="seat-badge pipe-no" title="Not submitted">✗ ' + pipeNo + '</span> ' +
+      '<span class="seat-badge pipe-wait" title="Submitted — waiting approval">📨 ' + pipeWait + '</span> ' +
+      '<span class="seat-badge pipe-ok" title="Approved">🤝 ' + pipeOk + '</span>';
 
     // Count + breakdown of a member set's declared Seat Colour (badges only
     // once at least one member has a colour; n/a = colour not yet set).
