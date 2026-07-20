@@ -48,6 +48,15 @@
   .stat .label { font-size: 0.7rem; color: #9fb0c4; text-transform: uppercase; letter-spacing: 0.5px; }
   .stat .val { font-size: 1.1rem; font-weight: 700; margin-top: 2px; }
   .stat .substat { font-size: 0.7rem; font-weight: 600; color: #9fb0c4; margin-top: 3px; white-space: nowrap; }
+  /* Farm "RSS feed" ticker */
+  .farm-ticker { display: flex; align-items: center; gap: 0; background: #142033; border: 1px solid #3d506b; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+  .farm-live { display: inline-flex; align-items: center; gap: 5px; background: #8a2f2f; color: #fff; font-size: 0.68rem; font-weight: 800; letter-spacing: 1px; padding: 6px 10px; flex-shrink: 0; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: livePulse 1.2s ease-in-out infinite; }
+  @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .ticker-track { flex: 1; overflow: hidden; }
+  .ticker-text { display: inline-block; white-space: nowrap; font-size: 0.78rem; font-weight: 600; color: #cdd9e8; padding: 6px 0; animation: tickerScroll 28s linear infinite; }
+  .ticker-text b { color: var(--gold); }
+  @keyframes tickerScroll { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
   .pipe-no { background: #8a4646; color: #fff; }
   .pipe-wait { background: #3572c2; color: #fff; }
   .pipe-ok { background: #268355; color: #fff; }
@@ -235,6 +244,13 @@
 <body>
   <h1>&#9876;&#65039; [UP7] Alliance Roster</h1>
   <div class="sub">Total Hero Power &amp; Kills &middot; tap a header to sort &middot; tap &#9733; to mark core</div>
+
+  <!-- Live "RSS feed" from the alliance farm (a running joke — Biggunsbigarmy
+       is the farm). Hidden until the member record carries farm* values. -->
+  <div class="farm-ticker" id="farmTicker" hidden>
+    <span class="farm-live"><span class="live-dot"></span>LIVE</span>
+    <div class="ticker-track"><div class="ticker-text" id="tickerText"></div></div>
+  </div>
 
   <div class="summary">
     <div class="stat"><div class="label">Members</div><div class="val" id="memberCount">&mdash;</div></div>
@@ -921,6 +937,49 @@
     input.addEventListener('blur', () => commit(true));
   }
 
+  // ---- Farm "RSS feed" ticker (the joke: Biggunsbigarmy is our farm) --------
+  // Reads farmBread/farmGold/farmIron (millions) off the farm's member record;
+  // hidden until those exist. Displayed numbers trickle upward while you watch,
+  // because the farm never sleeps.
+  let farmTimer = null;
+  const farmView = { bread: 0, gold: 0, iron: 0 };
+  function updateFarmTicker() {
+    const t = document.getElementById('farmTicker');
+    if (!t) return;
+    const farm = roster.find(x => norm(x.name) === 'biggunsbigarmy');
+    if (!farm || farm.farmBread == null) {
+      t.hidden = true;
+      if (farmTimer) { clearInterval(farmTimer); farmTimer = null; }
+      return;
+    }
+    farmView.bread = farm.farmBread;
+    farmView.gold = farm.farmGold || 0;
+    farmView.iron = farm.farmIron || 0;
+    const txt = document.getElementById('tickerText');
+    if (!txt.innerHTML) {
+      txt.innerHTML = '🚜 <b>UP7 FARM NETWORK</b> &mdash; OFFICIAL RSS FEED &middot; ' +
+        'Fresh from <b>Biggunsbigarmy Farms&trade;</b>: ' +
+        '🍞 <span id="farmB"></span> &middot; 🪙 <span id="farmG"></span> &middot; ⚙️ <span id="farmI"></span> ' +
+        '&middot; 🚪 Gates open 24/7 &middot; 🛒 Free pickup for UP7 members ' +
+        '&middot; 🐴 No heroes were harmed in the harvesting of these resources';
+    }
+    t.hidden = false;
+    const paint = () => {
+      const f = v => v >= 1000 ? (v / 1000).toFixed(2) + 'B' : v.toFixed(2) + 'M';
+      const b = document.getElementById('farmB'), g = document.getElementById('farmG'), i = document.getElementById('farmI');
+      if (b) { b.textContent = f(farmView.bread); g.textContent = f(farmView.gold); i.textContent = f(farmView.iron); }
+    };
+    paint();
+    if (!farmTimer) {
+      farmTimer = setInterval(() => {
+        farmView.bread += 0.01 + Math.random() * 0.04;
+        farmView.gold += 0.01 + Math.random() * 0.02;
+        farmView.iron += 0.01 + Math.random() * 0.04;
+        paint();
+      }, 4000);
+    }
+  }
+
   function updateStats() {
     document.getElementById('memberCount').textContent = roster.length;
     // Per-target-alliance tiles: seat count (with colour badges), THP, Kills, T1.
@@ -952,6 +1011,7 @@
       '<span class="seat-badge pipe-no" title="Not submitted">✗ ' + pipeNo + '</span> ' +
       '<span class="seat-badge pipe-wait" title="Submitted — waiting approval">📨 ' + pipeWait + '</span> ' +
       '<span class="seat-badge pipe-ok" title="Approved">🤝 ' + pipeOk + '</span>';
+    updateFarmTicker();
 
     // Count + breakdown of a member set's declared Seat Colour (badges only
     // once at least one member has a colour; n/a = colour not yet set).
