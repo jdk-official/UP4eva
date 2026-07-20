@@ -955,19 +955,21 @@
     farmView.bread = farm.farmBread;
     farmView.gold = farm.farmGold || 0;
     farmView.iron = farm.farmIron || 0;
+    farmView.oil = farm.farmOil || 0;
     const txt = document.getElementById('tickerText');
     if (!txt.innerHTML) {
       txt.innerHTML = '🚜 <b>UP7 FARM NETWORK</b> &mdash; OFFICIAL RSS FEED &middot; ' +
         'Fresh from <b>Biggunsbigarmy Farms&trade;</b>: ' +
-        '🍞 <span id="farmB"></span> &middot; 🪙 <span id="farmG"></span> &middot; ⚙️ <span id="farmI"></span> ' +
+        '🍞 <span id="farmB"></span> &middot; ⚙️ <span id="farmI"></span> &middot; 🪙 <span id="farmG"></span> &middot; 🛢️ <span id="farmO"></span> ' +
         '&middot; 🚪 Gates open 24/7 &middot; 🛒 Free pickup for UP7 members ' +
         '&middot; 🐴 No heroes were harmed in the harvesting of these resources';
     }
     t.hidden = false;
     const paint = () => {
       const f = v => v >= 1000 ? (v / 1000).toFixed(2) + 'B' : v.toFixed(2) + 'M';
-      const b = document.getElementById('farmB'), g = document.getElementById('farmG'), i = document.getElementById('farmI');
-      if (b) { b.textContent = f(farmView.bread); g.textContent = f(farmView.gold); i.textContent = f(farmView.iron); }
+      const b = document.getElementById('farmB'), g = document.getElementById('farmG'),
+            i = document.getElementById('farmI'), o = document.getElementById('farmO');
+      if (b) { b.textContent = f(farmView.bread); g.textContent = f(farmView.gold); i.textContent = f(farmView.iron); o.textContent = f(farmView.oil); }
     };
     paint();
     if (!farmTimer) {
@@ -975,6 +977,7 @@
         farmView.bread += 0.01 + Math.random() * 0.04;
         farmView.gold += 0.01 + Math.random() * 0.02;
         farmView.iron += 0.01 + Math.random() * 0.04;
+        farmView.oil += 0.01 + Math.random() * 0.01;
         paint();
       }, 4000);
     }
