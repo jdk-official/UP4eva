@@ -57,6 +57,14 @@
   .ticker-text { display: inline-block; white-space: nowrap; font-size: 0.78rem; font-weight: 600; color: #cdd9e8; padding: 6px 0; animation: tickerScroll 28s linear infinite; }
   .ticker-text b { color: var(--gold); }
   @keyframes tickerScroll { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+  .farm-loc-btn { background: #243447; border: none; border-right: 1px solid #3d506b; color: #fff; font-size: 0.85rem; padding: 5px 9px; cursor: pointer; flex-shrink: 0; align-self: stretch; }
+  .farm-loc-btn:hover { background: #2f4257; }
+  .farm-map { position: fixed; inset: 0; background: rgba(10, 16, 26, 0.87); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: pointer; }
+  .farm-map[hidden] { display: none; }
+  .farm-map-inner { max-width: min(92vw, 640px); }
+  .farm-map img { width: 100%; border-radius: 10px; border: 2px solid var(--gold); display: block; }
+  .farm-map-title { color: var(--gold); font-weight: 800; font-size: 0.85rem; letter-spacing: 1px; text-align: center; margin-bottom: 8px; }
+  .farm-map-cap { color: #9fb0c4; font-size: 0.75rem; text-align: center; margin-top: 8px; }
   .pipe-no { background: #8a4646; color: #fff; }
   .pipe-wait { background: #3572c2; color: #fff; }
   .pipe-ok { background: #268355; color: #fff; }
@@ -249,7 +257,17 @@
        is the farm). Hidden until the member record carries farm* values. -->
   <div class="farm-ticker" id="farmTicker" hidden>
     <span class="farm-live"><span class="live-dot"></span>LIVE</span>
+    <button class="farm-loc-btn" id="farmLocBtn" title="Farm location — satellite view">📍</button>
     <div class="ticker-track"><div class="ticker-text" id="tickerText"></div></div>
+  </div>
+
+  <!-- Farm location overlay: tap anywhere to close. -->
+  <div class="farm-map" id="farmMap" hidden>
+    <div class="farm-map-inner">
+      <div class="farm-map-title">🛰️ FARM LOCATION &mdash; CLASSIFIED</div>
+      <img src="farm-location.png" alt="Biggunsbigarmy's base — the golden pyramid">
+      <div class="farm-map-cap">#1115 &middot; [UP7]Biggunsbigarmy &middot; look for the golden pyramid &middot; tap anywhere to close</div>
+    </div>
   </div>
 
   <div class="summary">
@@ -1683,6 +1701,14 @@
   document.getElementById('importBtn').addEventListener('click', () => {
     const p = document.getElementById('importPanel');
     p.hidden = !p.hidden;
+  });
+  // Farm location overlay: 📍 opens, tap anywhere closes.
+  document.getElementById('farmLocBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('farmMap').hidden = false;
+  });
+  document.getElementById('farmMap').addEventListener('click', () => {
+    document.getElementById('farmMap').hidden = true;
   });
   document.getElementById('ocrRun').addEventListener('click', runOCR);
   document.getElementById('exportBtn').addEventListener('click', exportCSV);
