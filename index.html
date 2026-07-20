@@ -104,6 +104,7 @@
   .search-box::placeholder { color: #7e90a6; }
   .toolbar .toggle { background: var(--panel); color: #cdd9e8; border: 1px solid #3d506b; padding: 8px 12px; border-radius: 8px; font-size: 0.82rem; cursor: pointer; font-weight: 600; }
   .toolbar .toggle.active { background: var(--core); color: #3a2c08; border-color: var(--core); }
+  .toolbar .toggle.negate { background: #8a4646; color: #fff; border-color: #8a4646; }
   .result-count { color: #8fa3b8; font-size: 0.78rem; margin-left: auto; }
   .toolbar select { background: var(--panel); color: #cdd9e8; border: 1px solid #3d506b; border-radius: 8px; padding: 7px 10px; font-size: 0.82rem; cursor: pointer; }
   td.name .note-flag { font-size: 0.8rem; cursor: pointer; }
@@ -285,6 +286,8 @@
     </select>
     <button id="coreOnlyBtn" class="toggle" title="Show core members only">&#9733; Core only</button>
     <button id="votedOnlyBtn" class="toggle" title="Show 'Voted Yes' members only">&#10004; Voted only</button>
+    <button id="submFilterBtn" class="toggle" title="Cycle: all → submitted only → not submitted">&#128232; Submitted</button>
+    <button id="apprFilterBtn" class="toggle" title="Cycle: all → approved only → not approved">&#129309; Approved</button>
     <button id="expandAllBtn" class="toggle" title="Expand/collapse all member details">&#9662; Expand all</button>
     <span class="result-count" id="resultCount"></span>
   </div>
@@ -488,6 +491,8 @@
   let coreOnly = true;    // default view: show only Core members
   let votedOnly = false;
   let targetFilter = '';  // '' = all, 'PSD' / 'SPnX', or 'none' = unassigned
+  let submFilter = '';    // '' = all, 'yes' = submitted only, 'no' = not submitted
+  let apprFilter = '';    // '' = all, 'yes' = approved only, 'no' = not approved
   let expandAll = false;  // toolbar toggle: open every visible member's detail strip
   const expandedSquads = new Set(); // names with their Squad 2/3 strip open (session-only)
   let serverFilter = '';
@@ -1023,9 +1028,11 @@
       (!q || m.name.toLowerCase().includes(q)) &&
       (!coreOnly || core.has(m.name)) &&
       (!votedOnly || votedYes.has(m.name)) &&
-      (!targetFilter || (targetFilter === 'none' ? m.targetAlliance == null : m.targetAlliance === targetFilter)));
+      (!targetFilter || (targetFilter === 'none' ? m.targetAlliance == null : m.targetAlliance === targetFilter)) &&
+      (!submFilter || (submFilter === 'yes' ? !!m.submitted : !m.submitted)) &&
+      (!apprFilter || (apprFilter === 'yes' ? !!m.approved : !m.approved)));
     const rc = document.getElementById('resultCount');
-    if (rc) rc.textContent = (q || coreOnly || votedOnly || targetFilter)
+    if (rc) rc.textContent = (q || coreOnly || votedOnly || targetFilter || submFilter || apprFilter)
       ? (visible.length + ' of ' + roster.length + ' shown') : '';
 
     // Per-value tag colours (recomputed each render so new values get a colour).
@@ -1584,6 +1591,20 @@
   });
   const targetFilterEl = document.getElementById('targetFilter');
   targetFilterEl.addEventListener('change', () => { targetFilter = targetFilterEl.value; render(currentSort); });
+  // Submitted / Approved tri-state filters: all → only ✓ → only ✗ → all.
+  const wireFlagFilter = (btnId, icon, label, get, set) => {
+    const btn = document.getElementById(btnId);
+    btn.addEventListener('click', () => {
+      const next = get() === '' ? 'yes' : get() === 'yes' ? 'no' : '';
+      set(next);
+      btn.classList.toggle('active', next === 'yes');
+      btn.classList.toggle('negate', next === 'no');
+      btn.innerHTML = icon + ' ' + label + (next === 'yes' ? ' ✓' : next === 'no' ? ' ✗' : '');
+      render(currentSort);
+    });
+  };
+  wireFlagFilter('submFilterBtn', '&#128232;', 'Submitted', () => submFilter, v => submFilter = v);
+  wireFlagFilter('apprFilterBtn', '&#129309;', 'Approved', () => apprFilter, v => apprFilter = v);
 
   document.getElementById('importBtn').addEventListener('click', () => {
     const p = document.getElementById('importPanel');
