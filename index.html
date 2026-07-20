@@ -38,6 +38,7 @@
   .controls button#editBtn { margin-left: auto; }
   .controls button#editBtn.unlocked { background: var(--accent); color: #10220a; border-color: var(--accent); }
   body.readonly td.editable, body.readonly td.core, body.readonly td.vote,
+  body.readonly td.subm, body.readonly td.appr,
   body.readonly .editable-str, body.readonly .note-btn { cursor: default; }
   body.readonly td.editable:hover { text-decoration: none; }
   body.readonly .note-btn { display: none; }
@@ -188,6 +189,12 @@
   .vote-mark { cursor: pointer; font-size: 1.05rem; line-height: 1; user-select: none; opacity: 0.28; color: var(--accent); transition: opacity .1s, transform .1s; }
   .vote-mark.on { opacity: 1; }
   .vote-mark:active { transform: scale(0.8); }
+  /* Submitted (📨) / Approved (🤝) — greyscale until toggled on. */
+  td.subm, td.appr { text-align: center; cursor: pointer; }
+  thead th.subm, thead th.appr { text-align: center; width: 56px; }
+  .subm-mark, .appr-mark { cursor: pointer; font-size: 1.05rem; line-height: 1; user-select: none; opacity: 0.25; filter: grayscale(1); transition: opacity .1s, transform .1s, filter .1s; }
+  .subm-mark.on, .appr-mark.on { opacity: 1; filter: none; }
+  .subm-mark:active, .appr-mark:active { transform: scale(0.8); }
   footer { margin-top: 16px; color: #8fa3b8; font-size: 0.75rem; text-align: center; }
 
   /* ---- Phone layout: shrink the roster table so it fits without the whole
@@ -289,6 +296,8 @@
         <th>Commander</th>
         <th class="core">Core</th>
         <th class="vote">Voted Yes</th>
+        <th class="subm">Submitted</th>
+        <th class="appr">Approved</th>
         <th class="talliance">Target Alliance</th>
         <th class="num">THP</th>
         <th class="num">Kills</th>
@@ -660,6 +669,19 @@
     if (!requireEdit()) return;
     if (votedYes.has(name)) votedYes.delete(name); else votedYes.add(name);
     updateStats();
+    render(currentSort);
+    await saveState();
+  }
+
+  // Toggle a per-member boolean flag (submitted / approved) via its cell mark.
+  async function toggleMemberFlag(cell, markSel, key) {
+    if (!requireEdit()) return;
+    const s = cell.querySelector(markSel);
+    if (!s) return;
+    const m = roster.find(x => x.name === decode(s.getAttribute('data-name')));
+    if (!m) return;
+    if (m[key]) delete m[key]; else m[key] = true;
+    m.updated = Date.now();
     render(currentSort);
     await saveState();
   }
@@ -1063,6 +1085,8 @@
         nameCell +
         '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>' +
         '<td class="vote"><span class="vote-mark ' + votedOn + '" data-name="' + safeName + '">✔</span></td>' +
+        '<td class="subm"><span class="subm-mark ' + (m.submitted ? 'on' : '') + '" data-name="' + safeName + '" title="Transfer application submitted">📨</span></td>' +
+        '<td class="appr"><span class="appr-mark ' + (m.approved ? 'on' : '') + '" data-name="' + safeName + '" title="Transfer approved">🤝</span></td>' +
         tallyCell +
         thpCell +
         '<td class="num">' + fmtMil(Number(m.kills) || 0) + '</td>' +
@@ -1096,14 +1120,14 @@
           '<span class="sq-power" data-name="' + safeName + '" data-field="' + field + '" title="Tap to edit ' + label + '">' + (val == null ? '&mdash;' : val) + '</span></span>';
         const dtr = document.createElement('tr');
         dtr.className = 'squad-detail';
-        dtr.innerHTML = '<td colspan="13"><div class="sq-detail-flex">' + part(2) + part(3) + survey +
+        dtr.innerHTML = '<td colspan="15"><div class="sq-detail-flex">' + part(2) + part(3) + survey +
           lvl('HQ', 'hqLevel', m.hqLevel) + lvl('Prof.', 'profLevel', m.profLevel) + trackBox + '</div></td>';
         tbody.appendChild(dtr);
       }
     });
 
     if (!visible.length) {
-      tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:#7e90a6;font-style:italic;background:transparent;">No commanders match.</td></tr>';
     }
 
     // The whole Core cell is the tap target (bigger than the ★ glyph for touch).
@@ -1122,6 +1146,14 @@
         if (!s) return;
         toggleVotedYes(decode(s.getAttribute('data-name')));
       });
+    });
+
+    // Submitted / Approved cells — per-member boolean flags.
+    tbody.querySelectorAll('td.subm').forEach(cell => {
+      cell.addEventListener('click', () => toggleMemberFlag(cell, '.subm-mark', 'submitted'));
+    });
+    tbody.querySelectorAll('td.appr').forEach(cell => {
+      cell.addEventListener('click', () => toggleMemberFlag(cell, '.appr-mark', 'approved'));
     });
 
     // Squad Type cell — tap cycles null → Tank → Air → Missile (edit mode only).
@@ -1217,7 +1249,7 @@
       if (b.thp == null) return -1;
       return b.thp - a.thp;
     });
-    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Alliance Rank', 'Core', 'Voted Yes', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type',
+    const headers = ['Rank', 'Commander', 'Server', 'Alliance', 'Alliance Rank', 'Core', 'Voted Yes', 'Submitted', 'Approved', 'THP', 'Kills (M)', 'Squad 1', 'Squad Type',
       'Squad 2', 'Squad 2 Type', 'Squad 3', 'Squad 3 Type', 'T2/3 Group', 'T11',
       'Seat Colour (declared)', 'Target Alliance', 'How active are you in VS?', 'Buster Day?',
       'HQ Level', 'Professional Level',
@@ -1233,6 +1265,8 @@
         m.rank == null ? '' : m.rank,
         core.has(m.name) ? 'Yes' : '',
         votedYes.has(m.name) ? 'Yes' : '',
+        m.submitted ? 'Yes' : '',
+        m.approved ? 'Yes' : '',
         m.thp == null ? '' : m.thp,
         (Number(m.kills) || 0).toFixed(2),
         m.squad1 == null ? '' : m.squad1,
