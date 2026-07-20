@@ -189,12 +189,13 @@
   .vote-mark { cursor: pointer; font-size: 1.05rem; line-height: 1; user-select: none; opacity: 0.28; color: var(--accent); transition: opacity .1s, transform .1s; }
   .vote-mark.on { opacity: 1; }
   .vote-mark:active { transform: scale(0.8); }
-  /* Submitted (📨) / Approved (🤝) — greyscale until toggled on. */
+  /* Submitted / Approved — real checkbox look: outlined box off, filled + ✓ on. */
   td.subm, td.appr { text-align: center; cursor: pointer; }
   thead th.subm, thead th.appr { text-align: center; width: 36px; }
-  .subm-mark, .appr-mark { cursor: pointer; font-size: 1.05rem; line-height: 1; user-select: none; opacity: 0.25; filter: grayscale(1); transition: opacity .1s, transform .1s, filter .1s; }
-  .subm-mark.on, .appr-mark.on { opacity: 1; filter: none; }
-  .subm-mark:active, .appr-mark:active { transform: scale(0.8); }
+  .subm-mark, .appr-mark { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px; border: 2px solid #5a6a7d; background: transparent; color: transparent; font-size: 0.85rem; font-weight: 800; line-height: 1; cursor: pointer; user-select: none; transition: background .1s, border-color .1s, transform .1s; }
+  .subm-mark.on { border-color: #3572c2; background: #3572c2; color: #fff; }
+  .appr-mark.on { border-color: #268355; background: #268355; color: #fff; }
+  .subm-mark:active, .appr-mark:active { transform: scale(0.85); }
   footer { margin-top: 16px; color: #8fa3b8; font-size: 0.75rem; text-align: center; }
 
   /* ---- Phone layout: shrink the roster table so it fits without the whole
@@ -1085,8 +1086,8 @@
         nameCell +
         '<td class="core"><span class="star ' + on + '" data-name="' + safeName + '">★</span></td>' +
         '<td class="vote"><span class="vote-mark ' + votedOn + '" data-name="' + safeName + '">✔</span></td>' +
-        '<td class="subm"><span class="subm-mark ' + (m.submitted ? 'on' : '') + '" data-name="' + safeName + '" title="Transfer application submitted">📨</span></td>' +
-        '<td class="appr"><span class="appr-mark ' + (m.approved ? 'on' : '') + '" data-name="' + safeName + '" title="Transfer approved">🤝</span></td>' +
+        '<td class="subm"><span class="subm-mark ' + (m.submitted ? 'on' : '') + '" data-name="' + safeName + '" title="Transfer application submitted">✓</span></td>' +
+        '<td class="appr"><span class="appr-mark ' + (m.approved ? 'on' : '') + '" data-name="' + safeName + '" title="Transfer approved">✓</span></td>' +
         tallyCell +
         thpCell +
         '<td class="num">' + fmtMil(Number(m.kills) || 0) + '</td>' +
